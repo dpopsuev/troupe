@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dpopsuev/bugle"
 	"github.com/dpopsuev/bugle/palette"
 	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/transport"
