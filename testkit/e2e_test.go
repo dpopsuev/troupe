@@ -7,20 +7,22 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
 	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/transport"
+	"github.com/dpopsuev/bugle/world"
 	"github.com/dpopsuev/bugle/worldview"
 )
 
 // Feature: 2 same-provider agents.
 func TestE2E_TwoAgents_RequestConfirm(t *testing.T) {
-	world, agents := QuickWorld(2, "Refactor")
-	tr := QuickTransport(world, agents)
+	w, agents := QuickWorld(2, "Refactor")
+	tr := QuickTransport(w, agents)
 	defer tr.Close()
 
 	ctx := context.Background()
-	color0 := bugle.Get[bugle.ColorIdentity](world, agents[0])
-	color1 := bugle.Get[bugle.ColorIdentity](world, agents[1])
+	color0 := world.Get[palette.ColorIdentity](w, agents[0])
+	color1 := world.Get[palette.ColorIdentity](w, agents[1])
 
 	task, err := tr.SendMessage(ctx, color1.Short(), transport.Message{
 		From:         color0.Short(),
@@ -59,8 +61,8 @@ func TestE2E_TwoAgents_RequestConfirm(t *testing.T) {
 
 // Feature: Mixed elements collaborate.
 func TestE2E_MixedElements_Collaborate(t *testing.T) {
-	world := bugle.NewWorld()
-	reg := bugle.NewRegistry()
+	w := world.NewWorld()
+	reg := palette.NewRegistry()
 
 	fire, err := reg.AssignInGroup("Crimson", "Coder", "Team")
 	if err != nil {
@@ -71,13 +73,13 @@ func TestE2E_MixedElements_Collaborate(t *testing.T) {
 		t.Fatalf("AssignInGroup Azure: %v", err)
 	}
 
-	a := world.Spawn()
-	bugle.Attach(world, a, fire)
-	bugle.Attach(world, a, bugle.Health{State: bugle.Active})
+	a := w.Spawn()
+	world.Attach(w, a, fire)
+	world.Attach(w, a, bugle.Health{State: bugle.Active})
 
-	b := world.Spawn()
-	bugle.Attach(world, b, water)
-	bugle.Attach(world, b, bugle.Health{State: bugle.Active})
+	b := w.Spawn()
+	world.Attach(w, b, water)
+	world.Attach(w, b, bugle.Health{State: bugle.Active})
 
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
@@ -120,20 +122,20 @@ func TestE2E_MixedElements_Collaborate(t *testing.T) {
 
 // Feature: Full stack — World + Identity + Transport + Signal + WorldView.
 func TestE2E_FullStack_WorldIdentityTransportSignalView(t *testing.T) {
-	world, agents := QuickWorld(3, "Calibration")
-	tr := QuickTransport(world, agents)
+	w, agents := QuickWorld(3, "Calibration")
+	tr := QuickTransport(w, agents)
 	defer tr.Close()
 
 	bus := signal.NewMemBus()
-	view := worldview.NewView(world)
+	view := worldview.NewView(w)
 
 	// 1. Subscribe for health changes.
 	diffs := view.Subscribe(bugle.HealthType)
 
 	ctx := context.Background()
-	color0 := bugle.Get[bugle.ColorIdentity](world, agents[0])
-	color1 := bugle.Get[bugle.ColorIdentity](world, agents[1])
-	color2 := bugle.Get[bugle.ColorIdentity](world, agents[2])
+	color0 := world.Get[palette.ColorIdentity](w, agents[0])
+	color1 := world.Get[palette.ColorIdentity](w, agents[1])
+	color2 := world.Get[palette.ColorIdentity](w, agents[2])
 
 	// 2. Agent 0 sends to Agent 1.
 	task01, err := tr.SendMessage(ctx, color1.Short(), transport.Message{

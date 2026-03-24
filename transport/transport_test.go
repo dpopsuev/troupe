@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
 	"github.com/dpopsuev/bugle/signal"
+	"github.com/dpopsuev/bugle/world"
 )
 
 // ---------------------------------------------------------------------------
@@ -246,13 +248,13 @@ func TestLocal_Close(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCardFromEntity_ColorIdentity(t *testing.T) {
-	world := bugle.NewWorld()
-	agent := world.Spawn()
-	bugle.Attach(world, agent, bugle.ColorIdentity{
+	w := world.NewWorld()
+	agent := w.Spawn()
+	world.Attach(w, agent, palette.ColorIdentity{
 		Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
 	})
 
-	card := CardFromEntity(world, agent)
+	card := CardFromEntity(w, agent)
 
 	if card.ID != "agent-1" {
 		t.Errorf("ID = %q, want %q", card.ID, "agent-1")
@@ -269,17 +271,17 @@ func TestCardFromEntity_ColorIdentity(t *testing.T) {
 }
 
 func TestCardFromEntity_WithHealth(t *testing.T) {
-	world := bugle.NewWorld()
-	agent := world.Spawn()
-	bugle.Attach(world, agent, bugle.ColorIdentity{
+	w := world.NewWorld()
+	agent := w.Spawn()
+	world.Attach(w, agent, palette.ColorIdentity{
 		Shade: "Azure", Colour: "Cerulean", Role: "Reviewer", Collective: "QA",
 	})
-	bugle.Attach(world, agent, bugle.Health{
+	world.Attach(w, agent, bugle.Health{
 		State:    bugle.Active,
 		LastSeen: time.Now(),
 	})
 
-	card := CardFromEntity(world, agent)
+	card := CardFromEntity(w, agent)
 
 	if card.Metadata == nil {
 		t.Fatal("Metadata should not be nil when Health is attached")
@@ -290,10 +292,10 @@ func TestCardFromEntity_WithHealth(t *testing.T) {
 }
 
 func TestCardFromEntity_NoComponents(t *testing.T) {
-	world := bugle.NewWorld()
-	agent := world.Spawn()
+	w := world.NewWorld()
+	agent := w.Spawn()
 
-	card := CardFromEntity(world, agent)
+	card := CardFromEntity(w, agent)
 
 	if card.ID != "agent-1" {
 		t.Errorf("ID = %q, want %q", card.ID, "agent-1")

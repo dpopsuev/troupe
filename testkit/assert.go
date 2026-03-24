@@ -3,9 +3,9 @@ package testkit
 import (
 	"testing"
 
-	"github.com/dpopsuev/bugle"
 	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/transport"
+	"github.com/dpopsuev/bugle/world"
 )
 
 // AssertTaskState verifies a task reached the expected state.
@@ -32,9 +32,9 @@ func AssertSignalCount(t *testing.T, bus signal.Bus, event string, expected int)
 }
 
 // AssertEntityHas verifies an entity has a component of the given type.
-func AssertEntityHas[T bugle.Component](t *testing.T, world *bugle.World, id bugle.EntityID) {
+func AssertEntityHas[T world.Component](t *testing.T, w *world.World, id world.EntityID) {
 	t.Helper()
-	if _, ok := bugle.TryGet[T](world, id); !ok {
+	if _, ok := world.TryGet[T](w, id); !ok {
 		var zero T
 		t.Errorf("entity %d missing component %T", id, zero)
 	}

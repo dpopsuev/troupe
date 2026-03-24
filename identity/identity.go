@@ -1,4 +1,6 @@
-package bugle
+// Package identity defines agent identity types — Persona, AgentIdentity,
+// ModelIdentity, Color, Alignment, Position, MetaPhase, Role, and CostProfile.
+package identity
 
 import (
 	"fmt"

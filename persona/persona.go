@@ -7,38 +7,38 @@ package persona
 import (
 	"strings"
 
-	"github.com/dpopsuev/bugle"
 	"github.com/dpopsuev/bugle/element"
+	"github.com/dpopsuev/bugle/identity"
 )
 
 func init() {
-	bugle.DefaultPersonaResolver = ByName
+	identity.DefaultPersonaResolver = ByName
 }
 
 // PoC color palette
 
 var (
-	ColorCrimson  = bugle.Color{Name: "Crimson", DisplayName: "Crimson", Hex: "#DC143C", Family: "Reds"}
-	ColorCerulean = bugle.Color{Name: "Cerulean", DisplayName: "Cerulean", Hex: "#007BA7", Family: "Blues"}
-	ColorCobalt   = bugle.Color{Name: "Cobalt", DisplayName: "Cobalt", Hex: "#0047AB", Family: "Blues"}
-	ColorAmber    = bugle.Color{Name: "Amber", DisplayName: "Amber", Hex: "#FFBF00", Family: "Yellows"}
-	ColorScarlet  = bugle.Color{Name: "Scarlet", DisplayName: "Scarlet", Hex: "#FF2400", Family: "Reds"}
-	ColorSapphire = bugle.Color{Name: "Sapphire", DisplayName: "Sapphire", Hex: "#0F52BA", Family: "Blues"}
-	ColorObsidian = bugle.Color{Name: "Obsidian", DisplayName: "Obsidian", Hex: "#3C3C3C", Family: "Neutrals"}
-	ColorSteel    = bugle.Color{Name: "Steel", DisplayName: "Steel", Hex: "#71797E", Family: "Neutrals"}
+	ColorCrimson  = identity.Color{Name: "Crimson", DisplayName: "Crimson", Hex: "#DC143C", Family: "Reds"}
+	ColorCerulean = identity.Color{Name: "Cerulean", DisplayName: "Cerulean", Hex: "#007BA7", Family: "Blues"}
+	ColorCobalt   = identity.Color{Name: "Cobalt", DisplayName: "Cobalt", Hex: "#0047AB", Family: "Blues"}
+	ColorAmber    = identity.Color{Name: "Amber", DisplayName: "Amber", Hex: "#FFBF00", Family: "Yellows"}
+	ColorScarlet  = identity.Color{Name: "Scarlet", DisplayName: "Scarlet", Hex: "#FF2400", Family: "Reds"}
+	ColorSapphire = identity.Color{Name: "Sapphire", DisplayName: "Sapphire", Hex: "#0F52BA", Family: "Blues"}
+	ColorObsidian = identity.Color{Name: "Obsidian", DisplayName: "Obsidian", Hex: "#3C3C3C", Family: "Neutrals"}
+	ColorSteel    = identity.Color{Name: "Steel", DisplayName: "Steel", Hex: "#71797E", Family: "Neutrals"}
 )
 
 // Thesis returns the 4 perennial Thesis (Cadai) personas.
-func Thesis() []bugle.Persona {
-	return []bugle.Persona{
+func Thesis() []identity.Persona {
+	return []identity.Persona{
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Herald",
 				Color:           ColorCrimson,
 				Element:         element.ElementFire,
-				Position:        bugle.PositionPG,
-				Alignment:       bugle.AlignmentThesis,
-				HomeZone:        bugle.MetaPhaseBk,
+				Position:        identity.PositionPG,
+				Alignment:       identity.AlignmentThesis,
+				HomeZone:        identity.MetaPhaseBk,
 				StickinessLevel: 0,
 				StepAffinity: map[string]float64{
 					"recall": 0.9, "triage": 0.8,
@@ -51,13 +51,13 @@ func Thesis() []bugle.Persona {
 			Description: "Fast intake, optimistic classification",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Seeker",
 				Color:           ColorCerulean,
 				Element:         element.ElementWater,
-				Position:        bugle.PositionC,
-				Alignment:       bugle.AlignmentThesis,
-				HomeZone:        bugle.MetaPhaseFc,
+				Position:        identity.PositionC,
+				Alignment:       identity.AlignmentThesis,
+				HomeZone:        identity.MetaPhaseFc,
 				StickinessLevel: 3,
 				StepAffinity: map[string]float64{
 					"recall": 0.2, "triage": 0.3,
@@ -70,13 +70,13 @@ func Thesis() []bugle.Persona {
 			Description: "Deep investigator, builds evidence chains",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Sentinel",
 				Color:           ColorCobalt,
 				Element:         element.ElementEarth,
-				Position:        bugle.PositionPF,
-				Alignment:       bugle.AlignmentThesis,
-				HomeZone:        bugle.MetaPhaseFc,
+				Position:        identity.PositionPF,
+				Alignment:       identity.AlignmentThesis,
+				HomeZone:        identity.MetaPhaseFc,
 				StickinessLevel: 2,
 				StepAffinity: map[string]float64{
 					"recall": 0.3, "triage": 0.4,
@@ -89,13 +89,13 @@ func Thesis() []bugle.Persona {
 			Description: "Steady resolver, follows proven paths",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Weaver",
 				Color:           ColorAmber,
 				Element:         element.ElementAir,
-				Position:        bugle.PositionSG,
-				Alignment:       bugle.AlignmentThesis,
-				HomeZone:        bugle.MetaPhasePt,
+				Position:        identity.PositionSG,
+				Alignment:       identity.AlignmentThesis,
+				HomeZone:        identity.MetaPhasePt,
 				StickinessLevel: 1,
 				StepAffinity: map[string]float64{
 					"recall": 0.3, "triage": 0.4,
@@ -111,16 +111,16 @@ func Thesis() []bugle.Persona {
 }
 
 // Antithesis returns the 4 perennial Antithesis (Cytharai) personas.
-func Antithesis() []bugle.Persona {
-	return []bugle.Persona{
+func Antithesis() []identity.Persona {
+	return []identity.Persona{
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Challenger",
 				Color:           ColorScarlet,
 				Element:         element.ElementFire,
-				Position:        bugle.PositionPG,
-				Alignment:       bugle.AlignmentAntithesis,
-				HomeZone:        bugle.MetaPhaseBk,
+				Position:        identity.PositionPG,
+				Alignment:       identity.AlignmentAntithesis,
+				HomeZone:        identity.MetaPhaseBk,
 				StickinessLevel: 0,
 				StepAffinity: map[string]float64{
 					"challenge": 0.9, "cross-examine": 0.7,
@@ -132,13 +132,13 @@ func Antithesis() []bugle.Persona {
 			Description: "Aggressive skeptic, rejects weak triage",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Abyss",
 				Color:           ColorSapphire,
 				Element:         element.ElementWater,
-				Position:        bugle.PositionC,
-				Alignment:       bugle.AlignmentAntithesis,
-				HomeZone:        bugle.MetaPhaseFc,
+				Position:        identity.PositionC,
+				Alignment:       identity.AlignmentAntithesis,
+				HomeZone:        identity.MetaPhaseFc,
 				StickinessLevel: 3,
 				StepAffinity: map[string]float64{
 					"challenge": 0.3, "cross-examine": 0.5,
@@ -150,13 +150,13 @@ func Antithesis() []bugle.Persona {
 			Description: "Deep adversary, finds counter-evidence",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Bulwark",
 				Color:           ColorSteel,
 				Element:         element.ElementDiamond,
-				Position:        bugle.PositionPF,
-				Alignment:       bugle.AlignmentAntithesis,
-				HomeZone:        bugle.MetaPhaseFc,
+				Position:        identity.PositionPF,
+				Alignment:       identity.AlignmentAntithesis,
+				HomeZone:        identity.MetaPhaseFc,
 				StickinessLevel: 2,
 				StepAffinity: map[string]float64{
 					"challenge": 0.4, "cross-examine": 0.8,
@@ -168,13 +168,13 @@ func Antithesis() []bugle.Persona {
 			Description: "Precision verifier, shatters ambiguity",
 		},
 		{
-			Identity: bugle.AgentIdentity{
+			Identity: identity.AgentIdentity{
 				PersonaName:     "Specter",
 				Color:           ColorObsidian,
 				Element:         element.ElementLightning,
-				Position:        bugle.PositionSG,
-				Alignment:       bugle.AlignmentAntithesis,
-				HomeZone:        bugle.MetaPhasePt,
+				Position:        identity.PositionSG,
+				Alignment:       identity.AlignmentAntithesis,
+				HomeZone:        identity.MetaPhasePt,
 				StickinessLevel: 0,
 				StepAffinity: map[string]float64{
 					"challenge": 0.5, "cross-examine": 0.4,
@@ -189,17 +189,17 @@ func Antithesis() []bugle.Persona {
 }
 
 // All returns all 8 perennial personas (4 Thesis + 4 Antithesis).
-func All() []bugle.Persona {
+func All() []identity.Persona {
 	return append(Thesis(), Antithesis()...)
 }
 
 // ByName looks up a persona by name (case-insensitive).
-func ByName(name string) (bugle.Persona, bool) {
+func ByName(name string) (identity.Persona, bool) {
 	all := All()
 	for i := range all {
 		if strings.EqualFold(all[i].Identity.PersonaName, name) {
 			return all[i], true
 		}
 	}
-	return bugle.Persona{}, false
+	return identity.Persona{}, false
 }

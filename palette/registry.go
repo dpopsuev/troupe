@@ -1,4 +1,4 @@
-package bugle
+package palette
 
 import (
 	"fmt"
@@ -52,7 +52,7 @@ func (r *Registry) Assign(role, collective string) (ColorIdentity, error) {
 			}
 		}
 	}
-	return ColorIdentity{}, fmt.Errorf("bugle: all 56 colour slots are assigned")
+	return ColorIdentity{}, fmt.Errorf("palette: all 56 colour slots are assigned")
 }
 
 // AssignInGroup returns a ColorIdentity from a specific shade family.
@@ -62,7 +62,7 @@ func (r *Registry) AssignInGroup(shade, role, collective string) (ColorIdentity,
 
 	s := LookupShade(shade)
 	if s == nil {
-		return ColorIdentity{}, fmt.Errorf("bugle: unknown shade %q", shade)
+		return ColorIdentity{}, fmt.Errorf("palette: unknown shade %q", shade)
 	}
 
 	for _, colour := range s.Colours {
@@ -78,7 +78,7 @@ func (r *Registry) AssignInGroup(shade, role, collective string) (ColorIdentity,
 			}, nil
 		}
 	}
-	return ColorIdentity{}, fmt.Errorf("bugle: all colours in shade %q are assigned", shade)
+	return ColorIdentity{}, fmt.Errorf("palette: all colours in shade %q are assigned", shade)
 }
 
 // Set explicitly assigns a specific shade+colour combination.
@@ -88,15 +88,15 @@ func (r *Registry) Set(shade, colour, role, collective string) (ColorIdentity, e
 
 	c, foundShade, ok := LookupColour(colour)
 	if !ok {
-		return ColorIdentity{}, fmt.Errorf("bugle: unknown colour %q", colour)
+		return ColorIdentity{}, fmt.Errorf("palette: unknown colour %q", colour)
 	}
 	if foundShade != shade {
-		return ColorIdentity{}, fmt.Errorf("bugle: colour %q belongs to shade %q, not %q", colour, foundShade, shade)
+		return ColorIdentity{}, fmt.Errorf("palette: colour %q belongs to shade %q, not %q", colour, foundShade, shade)
 	}
 
 	key := registryKey(shade, colour)
 	if r.assigned[key] {
-		return ColorIdentity{}, fmt.Errorf("bugle: %s·%s is already assigned", shade, colour)
+		return ColorIdentity{}, fmt.Errorf("palette: %s·%s is already assigned", shade, colour)
 	}
 
 	r.assigned[key] = true

@@ -9,14 +9,15 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
 	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/transport"
+	"github.com/dpopsuev/bugle/world"
 )
 
 func TestStress_10Agents_50Messages(t *testing.T) {
-	world, agents := QuickWorld(10, "Stress")
-	tr := QuickTransport(world, agents)
+	w, agents := QuickWorld(10, "Stress")
+	tr := QuickTransport(w, agents)
 	defer tr.Close()
 
 	ctx := context.Background()
@@ -29,10 +30,10 @@ func TestStress_10Agents_50Messages(t *testing.T) {
 		wg.Add(1)
 		go func(sender int) {
 			defer wg.Done()
-			senderColor := bugle.Get[bugle.ColorIdentity](world, agents[sender])
+			senderColor := world.Get[palette.ColorIdentity](w, agents[sender])
 			for j := range messagesPerAgent {
 				target := (sender + j + 1) % len(agents)
-				targetColor := bugle.Get[bugle.ColorIdentity](world, agents[target])
+				targetColor := world.Get[palette.ColorIdentity](w, agents[target])
 				task, err := tr.SendMessage(ctx, targetColor.Short(), transport.Message{
 					From:         senderColor.Short(),
 					To:           targetColor.Short(),

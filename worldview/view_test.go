@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
+	"github.com/dpopsuev/bugle/world"
 	"github.com/dpopsuev/bugle/worldview"
 )
 
@@ -13,28 +15,28 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestSnapshot_MatchesComponentTypes(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	a := w.Spawn()
 	b := w.Spawn()
 	c := w.Spawn()
 
-	bugle.Attach(w, a, bugle.Health{State: bugle.Active})
-	bugle.Attach(w, a, bugle.ColorIdentity{Colour: "Denim", Collective: "Refactor"})
+	world.Attach(w, a, bugle.Health{State: bugle.Active})
+	world.Attach(w, a, palette.ColorIdentity{Colour: "Denim", Collective: "Refactor"})
 
-	bugle.Attach(w, b, bugle.Health{State: bugle.Idle})
-	bugle.Attach(w, b, bugle.ColorIdentity{Colour: "Scarlet", Collective: "Triage"})
+	world.Attach(w, b, bugle.Health{State: bugle.Idle})
+	world.Attach(w, b, palette.ColorIdentity{Colour: "Scarlet", Collective: "Triage"})
 
 	// c has only Health — should NOT match a 2-type query.
-	bugle.Attach(w, c, bugle.Health{State: bugle.Done})
+	world.Attach(w, c, bugle.Health{State: bugle.Done})
 
 	v := worldview.NewView(w)
-	snaps := v.Snapshot(bugle.HealthType, bugle.ColorIdentityType)
+	snaps := v.Snapshot(bugle.HealthType, palette.ColorIdentityType)
 
 	if len(snaps) != 2 {
 		t.Fatalf("Snapshot returned %d entities, want 2", len(snaps))
 	}
 
-	ids := make(map[bugle.EntityID]bool)
+	ids := make(map[world.EntityID]bool)
 	for _, s := range snaps {
 		ids[s.ID] = true
 		if len(s.Components) != 2 {
@@ -50,7 +52,7 @@ func TestSnapshot_MatchesComponentTypes(t *testing.T) {
 }
 
 func TestSnapshot_NoMatches(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	w.Spawn() // entity with no components
 
 	v := worldview.NewView(w)
@@ -62,9 +64,9 @@ func TestSnapshot_NoMatches(t *testing.T) {
 }
 
 func TestSnapshot_ReflectsLatestState(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	v := worldview.NewView(w)
 
@@ -79,7 +81,7 @@ func TestSnapshot_ReflectsLatestState(t *testing.T) {
 	}
 
 	// Update and re-snapshot.
-	bugle.Attach(w, id, bugle.Health{State: bugle.Errored, Error: "timeout"})
+	world.Attach(w, id, bugle.Health{State: bugle.Errored, Error: "timeout"})
 
 	snaps = v.Snapshot(bugle.HealthType)
 	h = snaps[0].Components[bugle.HealthType].(bugle.Health)
@@ -93,16 +95,16 @@ func TestSnapshot_ReflectsLatestState(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSubscribe_AttachEmitsDiff(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 	ch := v.Subscribe()
 
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	select {
 	case d := <-ch:
-		if d.Kind != bugle.DiffAttached {
+		if d.Kind != world.DiffAttached {
 			t.Errorf("kind = %s, want attached", d.Kind)
 		}
 		if d.Entity != id {
@@ -123,20 +125,20 @@ func TestSubscribe_AttachEmitsDiff(t *testing.T) {
 }
 
 func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	ch := v.Subscribe()
 
 	// Second attach triggers DiffUpdated.
-	bugle.Attach(w, id, bugle.Health{State: bugle.Errored, Error: "timeout"})
+	world.Attach(w, id, bugle.Health{State: bugle.Errored, Error: "timeout"})
 
 	select {
 	case d := <-ch:
-		if d.Kind != bugle.DiffUpdated {
+		if d.Kind != world.DiffUpdated {
 			t.Errorf("kind = %s, want updated", d.Kind)
 		}
 		if d.Old == nil {
@@ -156,18 +158,18 @@ func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
 }
 
 func TestSubscribe_DetachEmitsDiff(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	ch := v.Subscribe()
-	bugle.Detach[bugle.Health](w, id)
+	world.Detach[bugle.Health](w, id)
 
 	select {
 	case d := <-ch:
-		if d.Kind != bugle.DiffDetached {
+		if d.Kind != world.DiffDetached {
 			t.Errorf("kind = %s, want detached", d.Kind)
 		}
 		if d.Old == nil {
@@ -182,7 +184,7 @@ func TestSubscribe_DetachEmitsDiff(t *testing.T) {
 }
 
 func TestSubscribe_FiltersByType(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 
 	// Subscribe to Health only.
@@ -190,7 +192,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 
 	id := w.Spawn()
 	// Attach a ColorIdentity (should NOT trigger diff on this channel).
-	bugle.Attach(w, id, bugle.ColorIdentity{Colour: "Denim"})
+	world.Attach(w, id, palette.ColorIdentity{Colour: "Denim"})
 
 	select {
 	case d := <-ch:
@@ -200,7 +202,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 	}
 
 	// Now attach Health — should trigger.
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	select {
 	case d := <-ch:
@@ -213,7 +215,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 }
 
 func TestSubscribe_Unsubscribe(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 
 	ch := v.Subscribe()
@@ -227,23 +229,23 @@ func TestSubscribe_Unsubscribe(t *testing.T) {
 
 	// Attach should not panic (no subscriber).
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 }
 
 func TestSubscribe_MultipleSubs(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	v := worldview.NewView(w)
 
 	ch1 := v.Subscribe()
 	ch2 := v.Subscribe()
 
 	id := w.Spawn()
-	bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+	world.Attach(w, id, bugle.Health{State: bugle.Active})
 
 	for i, ch := range []<-chan worldview.Diff{ch1, ch2} {
 		select {
 		case d := <-ch:
-			if d.Kind != bugle.DiffAttached {
+			if d.Kind != world.DiffAttached {
 				t.Errorf("sub %d: kind = %s, want attached", i, d.Kind)
 			}
 		case <-time.After(time.Second):
@@ -257,14 +259,14 @@ func TestSubscribe_MultipleSubs(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHierarchy_BuildsTree(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	parent := w.Spawn()
 	child := w.Spawn()
 	grandchild := w.Spawn()
 
-	bugle.Attach(w, parent, bugle.Hierarchy{Parent: 0})
-	bugle.Attach(w, child, bugle.Hierarchy{Parent: parent})
-	bugle.Attach(w, grandchild, bugle.Hierarchy{Parent: child})
+	world.Attach(w, parent, bugle.Hierarchy{Parent: 0})
+	world.Attach(w, child, bugle.Hierarchy{Parent: parent})
+	world.Attach(w, grandchild, bugle.Hierarchy{Parent: child})
 
 	v := worldview.NewView(w)
 	tree := v.Hierarchy()
@@ -292,15 +294,15 @@ func TestHierarchy_BuildsTree(t *testing.T) {
 }
 
 func TestHierarchy_RootsHaveNoParent(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 	a := w.Spawn()
 	b := w.Spawn()
 	c := w.Spawn()
 
 	// a and b are roots (Parent=0), c is child of a.
-	bugle.Attach(w, a, bugle.Hierarchy{Parent: 0})
-	bugle.Attach(w, b, bugle.Hierarchy{Parent: 0})
-	bugle.Attach(w, c, bugle.Hierarchy{Parent: a})
+	world.Attach(w, a, bugle.Hierarchy{Parent: 0})
+	world.Attach(w, b, bugle.Hierarchy{Parent: 0})
+	world.Attach(w, c, bugle.Hierarchy{Parent: a})
 
 	v := worldview.NewView(w)
 	tree := v.Hierarchy()
@@ -309,7 +311,7 @@ func TestHierarchy_RootsHaveNoParent(t *testing.T) {
 		t.Fatalf("expected 2 roots, got %d", len(tree))
 	}
 
-	rootIDs := make(map[bugle.EntityID]bool)
+	rootIDs := make(map[world.EntityID]bool)
 	for _, n := range tree {
 		rootIDs[n.ID] = true
 	}
@@ -323,20 +325,20 @@ func TestHierarchy_RootsHaveNoParent(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestStats_CountsByState(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 
 	// 3 active, 2 idle, 1 errored.
 	for range 3 {
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.Health{State: bugle.Active})
+		world.Attach(w, id, bugle.Health{State: bugle.Active})
 	}
 	for range 2 {
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.Health{State: bugle.Idle})
+		world.Attach(w, id, bugle.Health{State: bugle.Idle})
 	}
 	{
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.Health{State: bugle.Errored})
+		world.Attach(w, id, bugle.Health{State: bugle.Errored})
 	}
 
 	v := worldview.NewView(w)
@@ -357,16 +359,16 @@ func TestStats_CountsByState(t *testing.T) {
 }
 
 func TestStats_CountsCollectives(t *testing.T) {
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 
 	// 3 in "Refactor", 2 in "Triage".
 	for range 3 {
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.ColorIdentity{Colour: "A", Collective: "Refactor"})
+		world.Attach(w, id, palette.ColorIdentity{Colour: "A", Collective: "Refactor"})
 	}
 	for range 2 {
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.ColorIdentity{Colour: "B", Collective: "Triage"})
+		world.Attach(w, id, palette.ColorIdentity{Colour: "B", Collective: "Triage"})
 	}
 
 	v := worldview.NewView(w)
@@ -384,7 +386,7 @@ func TestStats_CountsCollectives(t *testing.T) {
 func TestAcceptance_MinimapPattern(t *testing.T) {
 	// Full pattern: spawn agents with identity+health, create View,
 	// snapshot, verify readable output.
-	w := bugle.NewWorld()
+	w := world.NewWorld()
 
 	agents := []struct {
 		colour     string
@@ -400,26 +402,26 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 
 	for _, a := range agents {
 		id := w.Spawn()
-		bugle.Attach(w, id, bugle.ColorIdentity{
+		world.Attach(w, id, palette.ColorIdentity{
 			Shade:      a.shade,
 			Colour:     a.colour,
 			Role:       a.role,
 			Collective: a.collective,
 		})
-		bugle.Attach(w, id, bugle.Health{State: a.state, LastSeen: time.Now()})
+		world.Attach(w, id, bugle.Health{State: a.state, LastSeen: time.Now()})
 	}
 
 	v := worldview.NewView(w)
 
 	// Snapshot all agents with both components.
-	snaps := v.Snapshot(bugle.ColorIdentityType, bugle.HealthType)
+	snaps := v.Snapshot(palette.ColorIdentityType, bugle.HealthType)
 	if len(snaps) != 3 {
 		t.Fatalf("expected 3 snapshots, got %d", len(snaps))
 	}
 
 	// Verify each snapshot has readable data.
 	for _, s := range snaps {
-		ci := s.Components[bugle.ColorIdentityType].(bugle.ColorIdentity)
+		ci := s.Components[palette.ColorIdentityType].(palette.ColorIdentity)
 		h := s.Components[bugle.HealthType].(bugle.Health)
 		if ci.Colour == "" {
 			t.Errorf("entity %d: empty Colour", s.ID)

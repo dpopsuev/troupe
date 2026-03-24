@@ -6,26 +6,28 @@ import (
 	"sync"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
+	"github.com/dpopsuev/bugle/world"
 )
 
 // EntitySnapshot is a point-in-time capture of an entity's components.
 type EntitySnapshot struct {
-	ID         bugle.EntityID
-	Components map[bugle.ComponentType]bugle.Component
+	ID         world.EntityID
+	Components map[world.ComponentType]world.Component
 }
 
 // Diff describes a single component change on an entity.
 type Diff struct {
-	Entity    bugle.EntityID
-	Component bugle.ComponentType
-	Kind      bugle.DiffKind
-	Old       bugle.Component
-	New       bugle.Component
+	Entity    world.EntityID
+	Component world.ComponentType
+	Kind      world.DiffKind
+	Old       world.Component
+	New       world.Component
 }
 
 // TreeNode represents a node in the entity hierarchy.
 type TreeNode struct {
-	ID       bugle.EntityID
+	ID       world.EntityID
 	Children []TreeNode
 }
 
@@ -39,24 +41,24 @@ type Stats struct {
 // View provides read-only projections of an ECS World. It supports
 // snapshots, live diff subscriptions, hierarchy trees, and aggregate stats.
 type View struct {
-	world *bugle.World
+	world *world.World
 	mu    sync.RWMutex
 	subs  map[<-chan Diff]*subscription
 }
 
 type subscription struct {
 	ch    chan Diff
-	types map[bugle.ComponentType]bool // nil = all types
+	types map[world.ComponentType]bool // nil = all types
 }
 
 // NewView creates a View and registers a DiffHook on the World that
 // forwards component diffs to active subscribers.
-func NewView(w *bugle.World) *View {
+func NewView(w *world.World) *View {
 	v := &View{
 		world: w,
 		subs:  make(map[<-chan Diff]*subscription),
 	}
-	w.OnDiff(func(id bugle.EntityID, ct bugle.ComponentType, kind bugle.DiffKind, old, new bugle.Component) {
+	w.OnDiff(func(id world.EntityID, ct world.ComponentType, kind world.DiffKind, old, new world.Component) {
 		d := Diff{
 			Entity:    id,
 			Component: ct,
@@ -83,14 +85,14 @@ func NewView(w *bugle.World) *View {
 // Snapshot returns point-in-time snapshots of all entities that possess
 // every one of the requested component types. If no types are specified,
 // all entities are returned with empty component maps.
-func (v *View) Snapshot(types ...bugle.ComponentType) []EntitySnapshot {
+func (v *View) Snapshot(types ...world.ComponentType) []EntitySnapshot {
 	if len(types) == 0 {
 		ids := v.world.All()
 		result := make([]EntitySnapshot, len(ids))
 		for i, id := range ids {
 			result[i] = EntitySnapshot{
 				ID:         id,
-				Components: make(map[bugle.ComponentType]bugle.Component),
+				Components: make(map[world.ComponentType]world.Component),
 			}
 		}
 		return result
@@ -103,13 +105,13 @@ func (v *View) Snapshot(types ...bugle.ComponentType) []EntitySnapshot {
 	}
 
 	// Intersect with remaining types.
-	candidateSet := make(map[bugle.EntityID]bool, len(candidates))
+	candidateSet := make(map[world.EntityID]bool, len(candidates))
 	for _, id := range candidates {
 		candidateSet[id] = true
 	}
 	for _, ct := range types[1:] {
 		ids := v.world.QueryType(ct)
-		next := make(map[bugle.EntityID]bool, len(ids))
+		next := make(map[world.EntityID]bool, len(ids))
 		for _, id := range ids {
 			if candidateSet[id] {
 				next[id] = true
@@ -126,7 +128,7 @@ func (v *View) Snapshot(types ...bugle.ComponentType) []EntitySnapshot {
 	for id := range candidateSet {
 		snap := EntitySnapshot{
 			ID:         id,
-			Components: make(map[bugle.ComponentType]bugle.Component, len(types)),
+			Components: make(map[world.ComponentType]world.Component, len(types)),
 		}
 		for _, ct := range types {
 			if c, ok := v.world.GetType(id, ct); ok {
@@ -146,11 +148,11 @@ func (v *View) Snapshot(types ...bugle.ComponentType) []EntitySnapshot {
 // Subscribe returns a channel that receives Diff values for matching
 // component types. If no types are specified, all diffs are forwarded.
 // The channel is buffered (cap 64); diffs are dropped if full.
-func (v *View) Subscribe(types ...bugle.ComponentType) <-chan Diff {
+func (v *View) Subscribe(types ...world.ComponentType) <-chan Diff {
 	ch := make(chan Diff, 64)
 	sub := &subscription{ch: ch}
 	if len(types) > 0 {
-		sub.types = make(map[bugle.ComponentType]bool, len(types))
+		sub.types = make(map[world.ComponentType]bool, len(types))
 		for _, ct := range types {
 			sub.types[ct] = true
 		}
@@ -183,8 +185,8 @@ func (v *View) Hierarchy() []TreeNode {
 
 	// Collect parent info.
 	type entry struct {
-		id     bugle.EntityID
-		parent bugle.EntityID
+		id     world.EntityID
+		parent world.EntityID
 	}
 	entries := make([]entry, 0, len(ids))
 	for _, id := range ids {
@@ -197,8 +199,8 @@ func (v *View) Hierarchy() []TreeNode {
 	}
 
 	// Build parent→children map.
-	children := make(map[bugle.EntityID][]bugle.EntityID)
-	var roots []bugle.EntityID
+	children := make(map[world.EntityID][]world.EntityID)
+	var roots []world.EntityID
 	for _, e := range entries {
 		if e.parent == 0 || !v.world.Alive(e.parent) {
 			roots = append(roots, e.id)
@@ -213,8 +215,8 @@ func (v *View) Hierarchy() []TreeNode {
 		sort.Slice(children[k], func(i, j int) bool { return children[k][i] < children[k][j] })
 	}
 
-	var buildTree func(id bugle.EntityID) TreeNode
-	buildTree = func(id bugle.EntityID) TreeNode {
+	var buildTree func(id world.EntityID) TreeNode
+	buildTree = func(id world.EntityID) TreeNode {
 		node := TreeNode{ID: id}
 		for _, childID := range children[id] {
 			node.Children = append(node.Children, buildTree(childID))
@@ -246,14 +248,14 @@ func (v *View) Stats() Stats {
 		s.ByState[h.State]++
 	}
 
-	colorIDs := v.world.QueryType(bugle.ColorIdentityType)
+	colorIDs := v.world.QueryType(palette.ColorIdentityType)
 	collectives := make(map[string]bool)
 	for _, id := range colorIDs {
-		c, ok := v.world.GetType(id, bugle.ColorIdentityType)
+		c, ok := v.world.GetType(id, palette.ColorIdentityType)
 		if !ok {
 			continue
 		}
-		ci := c.(bugle.ColorIdentity) //nolint:errcheck // type guaranteed by QueryType
+		ci := c.(palette.ColorIdentity) //nolint:errcheck // type guaranteed by QueryType
 		if ci.Collective != "" {
 			collectives[ci.Collective] = true
 		}

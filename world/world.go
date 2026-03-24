@@ -1,4 +1,6 @@
-package bugle
+// Package world provides the ECS registry — entities, components, and systems.
+// Thread-safe via RWMutex (read-heavy workload).
+package world
 
 import (
 	"fmt"
@@ -14,7 +16,7 @@ type ComponentType string
 // Component is the marker interface for ECS data bags.
 // Every component must return a unique ComponentType.
 type Component interface {
-	componentType() ComponentType
+	ComponentType() ComponentType
 }
 
 // DiffKind describes a component change type.
@@ -103,7 +105,7 @@ func (w *World) All() []EntityID {
 // Panics if the entity does not exist.
 // Diff hooks are called outside the write lock.
 func Attach[T Component](w *World, id EntityID, c T) {
-	ct := c.componentType()
+	ct := c.ComponentType()
 
 	var (
 		old   Component
@@ -115,7 +117,7 @@ func Attach[T Component](w *World, id EntityID, c T) {
 	bag, ok := w.components[id]
 	if !ok {
 		w.mu.Unlock()
-		panic(fmt.Sprintf("bugle: Attach on dead entity %d", id))
+		panic(fmt.Sprintf("world: Attach on dead entity %d", id))
 	}
 	prev, existed := bag[ct]
 	bag[ct] = c
@@ -143,11 +145,11 @@ func Get[T Component](w *World, id EntityID) T {
 	var zero T
 	bag, ok := w.components[id]
 	if !ok {
-		panic(fmt.Sprintf("bugle: Get on dead entity %d", id))
+		panic(fmt.Sprintf("world: Get on dead entity %d", id))
 	}
-	raw, ok := bag[zero.componentType()]
+	raw, ok := bag[zero.ComponentType()]
 	if !ok {
-		panic(fmt.Sprintf("bugle: Get %T on entity %d: not attached", zero, id))
+		panic(fmt.Sprintf("world: Get %T on entity %d: not attached", zero, id))
 	}
 	return raw.(T)
 }
@@ -161,7 +163,7 @@ func TryGet[T Component](w *World, id EntityID) (T, bool) {
 	if !ok {
 		return zero, false
 	}
-	raw, ok := bag[zero.componentType()]
+	raw, ok := bag[zero.ComponentType()]
 	if !ok {
 		return zero, false
 	}
@@ -172,7 +174,7 @@ func TryGet[T Component](w *World, id EntityID) (T, bool) {
 // Diff hooks are called outside the write lock.
 func Detach[T Component](w *World, id EntityID) {
 	var zero T
-	ct := zero.componentType()
+	ct := zero.ComponentType()
 
 	var (
 		old   Component
@@ -228,7 +230,7 @@ func Query[T Component](w *World) []EntityID {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	var zero T
-	ct := zero.componentType()
+	ct := zero.ComponentType()
 	ids := make([]EntityID, 0)
 	for id, bag := range w.components {
 		if _, ok := bag[ct]; ok {

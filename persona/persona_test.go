@@ -3,8 +3,8 @@ package persona
 import (
 	"testing"
 
-	"github.com/dpopsuev/bugle"
 	"github.com/dpopsuev/bugle/element"
+	"github.com/dpopsuev/bugle/identity"
 )
 
 func TestAll_Count(t *testing.T) {
@@ -20,7 +20,7 @@ func TestThesis_Count(t *testing.T) {
 		t.Errorf("len(Thesis) = %d, want 4", len(thesis))
 	}
 	for _, p := range thesis {
-		if p.Identity.Alignment != bugle.AlignmentThesis {
+		if p.Identity.Alignment != identity.AlignmentThesis {
 			t.Errorf("persona %q has alignment %q, want thesis", p.Identity.PersonaName, p.Identity.Alignment)
 		}
 	}
@@ -32,7 +32,7 @@ func TestAntithesis_Count(t *testing.T) {
 		t.Errorf("len(Antithesis) = %d, want 4", len(antithesis))
 	}
 	for _, p := range antithesis {
-		if p.Identity.Alignment != bugle.AlignmentAntithesis {
+		if p.Identity.Alignment != identity.AlignmentAntithesis {
 			t.Errorf("persona %q has alignment %q, want antithesis", p.Identity.PersonaName, p.Identity.Alignment)
 		}
 	}
@@ -49,10 +49,10 @@ func TestByName_Herald(t *testing.T) {
 	if p.Identity.Element != element.ElementFire {
 		t.Errorf("Herald element = %q, want fire", p.Identity.Element)
 	}
-	if p.Identity.Position != bugle.PositionPG {
+	if p.Identity.Position != identity.PositionPG {
 		t.Errorf("Herald position = %q, want PG", p.Identity.Position)
 	}
-	if p.Identity.Alignment != bugle.AlignmentThesis {
+	if p.Identity.Alignment != identity.AlignmentThesis {
 		t.Errorf("Herald alignment = %q, want thesis", p.Identity.Alignment)
 	}
 }
@@ -100,7 +100,7 @@ func TestPersonas_UniqueColors(t *testing.T) {
 }
 
 func TestPersonas_AllPositionsCovered(t *testing.T) {
-	positions := map[bugle.Position]int{bugle.PositionPG: 0, bugle.PositionSG: 0, bugle.PositionPF: 0, bugle.PositionC: 0}
+	positions := map[identity.Position]int{identity.PositionPG: 0, identity.PositionSG: 0, identity.PositionPF: 0, identity.PositionC: 0}
 	for _, p := range All() {
 		positions[p.Identity.Position]++
 	}
@@ -129,7 +129,7 @@ func TestPersonas_AllHavePromptPreamble(t *testing.T) {
 
 func TestPersonas_HomeZoneMatchesPosition(t *testing.T) {
 	for _, p := range All() {
-		expected := bugle.HomeZoneFor(p.Identity.Position)
+		expected := identity.HomeZoneFor(p.Identity.Position)
 		if p.Identity.HomeZone != expected {
 			t.Errorf("persona %s: HomeZone=%q but HomeZoneFor(%s)=%q",
 				p.Identity.PersonaName, p.Identity.HomeZone, p.Identity.Position, expected)
@@ -138,7 +138,7 @@ func TestPersonas_HomeZoneMatchesPosition(t *testing.T) {
 }
 
 func TestColorPalette_HexFormat(t *testing.T) {
-	colors := []bugle.Color{
+	colors := []identity.Color{
 		ColorCrimson, ColorCerulean, ColorCobalt, ColorAmber,
 		ColorScarlet, ColorSapphire, ColorObsidian, ColorSteel,
 	}

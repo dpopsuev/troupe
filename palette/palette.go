@@ -1,4 +1,15 @@
-package bugle
+// Package palette defines the heraldic color system — Shade families,
+// Colour values, ColorIdentity component, and the collision-free Registry.
+package palette
+
+import (
+	"fmt"
+
+	"github.com/dpopsuev/bugle/world"
+)
+
+// ColorIdentityType is the ComponentType for ColorIdentity.
+const ColorIdentityType world.ComponentType = "color_identity"
 
 // Shade is a color family grouping for agent collectives.
 type Shade struct {
@@ -12,7 +23,7 @@ type Colour struct {
 	Hex  string
 }
 
-// Palette defines 7 shade families × 8 colours = 56 unique agent identities.
+// Palette defines 7 shade families x 8 colours = 56 unique agent identities.
 var Palette = []Shade{
 	{Name: "Azure", Colours: []Colour{
 		{"Cerulean", "#007BA7"},
@@ -108,3 +119,29 @@ func LookupColour(name string) (Colour, string, bool) {
 	}
 	return Colour{}, "", false
 }
+
+// ColorIdentity is the visual identity for humans.
+// Format: "Denim Writer of Indigo Refactor" (Colour Role of Shade Collective).
+type ColorIdentity struct {
+	Shade      string `json:"shade"`      // group family: "Indigo", "Crimson"
+	Colour     string `json:"colour"`     // individual: "Denim", "Scarlet"
+	Role       string `json:"role"`       // function: "Writer", "Reviewer"
+	Collective string `json:"collective"` // formation: "Refactor", "Triage"
+	Hex        string `json:"hex"`        // CSS hex: "#6F8FAF"
+}
+
+// ComponentType implements world.Component.
+func (ColorIdentity) ComponentType() world.ComponentType { return ColorIdentityType }
+
+// Title returns the heraldic name: "Denim Writer of Indigo Refactor".
+func (c ColorIdentity) Title() string { //nolint:gocritic // value receiver needed for ECS Get[T]
+	return fmt.Sprintf("%s %s of %s %s", c.Colour, c.Role, c.Shade, c.Collective)
+}
+
+// Label returns the compact log format: "[Indigo·Denim|Writer]".
+func (c ColorIdentity) Label() string { //nolint:gocritic // value receiver needed for ECS Get[T]
+	return fmt.Sprintf("[%s·%s|%s]", c.Shade, c.Colour, c.Role)
+}
+
+// Short returns just the colour name: "Denim".
+func (c ColorIdentity) Short() string { return c.Colour } //nolint:gocritic // value receiver

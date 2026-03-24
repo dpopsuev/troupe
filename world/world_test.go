@@ -1,9 +1,23 @@
-package bugle
+package world
 
 import (
 	"sync"
 	"testing"
 )
+
+// testComponent is a minimal component for testing.
+type testComponent struct {
+	Value string
+}
+
+func (testComponent) ComponentType() ComponentType { return "test_component" }
+
+// testComponent2 is a second component type for testing multi-component scenarios.
+type testComponent2 struct {
+	State string
+}
+
+func (testComponent2) ComponentType() ComponentType { return "test_component_2" }
 
 func TestWorld_SpawnReturnsUniqueIDs(t *testing.T) {
 	w := NewWorld()
@@ -18,30 +32,30 @@ func TestWorld_SpawnReturnsUniqueIDs(t *testing.T) {
 func TestWorld_AttachGetRoundTrip(t *testing.T) {
 	w := NewWorld()
 	id := w.Spawn()
-	Attach(w, id, ColorIdentity{Shade: "Azure", Colour: "Cerulean", Role: "Coder"})
+	Attach(w, id, testComponent{Value: "Cerulean"})
 
-	got := Get[ColorIdentity](w, id)
-	if got.Colour != "Cerulean" {
-		t.Errorf("Get Colour = %q, want Cerulean", got.Colour)
+	got := Get[testComponent](w, id)
+	if got.Value != "Cerulean" {
+		t.Errorf("Get Value = %q, want Cerulean", got.Value)
 	}
 }
 
 func TestWorld_AttachReplaces(t *testing.T) {
 	w := NewWorld()
 	id := w.Spawn()
-	Attach(w, id, Health{State: Active})
-	Attach(w, id, Health{State: Errored, Error: "timeout"})
+	Attach(w, id, testComponent2{State: "active"})
+	Attach(w, id, testComponent2{State: "errored"})
 
-	got := Get[Health](w, id)
-	if got.State != Errored {
-		t.Errorf("expected replaced Health state Errored, got %s", got.State)
+	got := Get[testComponent2](w, id)
+	if got.State != "errored" {
+		t.Errorf("expected replaced state errored, got %s", got.State)
 	}
 }
 
 func TestWorld_TryGetMissing(t *testing.T) {
 	w := NewWorld()
 	id := w.Spawn()
-	_, ok := TryGet[ColorIdentity](w, id)
+	_, ok := TryGet[testComponent](w, id)
 	if ok {
 		t.Error("TryGet should return false for unattached component")
 	}
@@ -49,7 +63,7 @@ func TestWorld_TryGetMissing(t *testing.T) {
 
 func TestWorld_TryGetDeadEntity(t *testing.T) {
 	w := NewWorld()
-	_, ok := TryGet[Health](w, EntityID(999))
+	_, ok := TryGet[testComponent2](w, EntityID(999))
 	if ok {
 		t.Error("TryGet should return false for nonexistent entity")
 	}
@@ -58,10 +72,10 @@ func TestWorld_TryGetDeadEntity(t *testing.T) {
 func TestWorld_DetachRemoves(t *testing.T) {
 	w := NewWorld()
 	id := w.Spawn()
-	Attach(w, id, Health{State: Active})
-	Detach[Health](w, id)
+	Attach(w, id, testComponent2{State: "active"})
+	Detach[testComponent2](w, id)
 
-	_, ok := TryGet[Health](w, id)
+	_, ok := TryGet[testComponent2](w, id)
 	if ok {
 		t.Error("Detach should remove component")
 	}
@@ -70,8 +84,8 @@ func TestWorld_DetachRemoves(t *testing.T) {
 func TestWorld_DespawnRemovesAll(t *testing.T) {
 	w := NewWorld()
 	id := w.Spawn()
-	Attach(w, id, Health{State: Active})
-	Attach(w, id, ColorIdentity{Colour: "Denim"})
+	Attach(w, id, testComponent2{State: "active"})
+	Attach(w, id, testComponent{Value: "Denim"})
 
 	w.Despawn(id)
 	if w.Alive(id) {
@@ -88,13 +102,13 @@ func TestWorld_QueryMatchesComponents(t *testing.T) {
 	b := w.Spawn()
 	c := w.Spawn()
 
-	Attach(w, a, Health{State: Active})
-	Attach(w, b, Health{State: Idle})
-	// c has no Health
+	Attach(w, a, testComponent2{State: "active"})
+	Attach(w, b, testComponent2{State: "idle"})
+	// c has no testComponent2
 
-	ids := Query[Health](w)
+	ids := Query[testComponent2](w)
 	if len(ids) != 2 {
-		t.Fatalf("Query[Health] returned %d entities, want 2", len(ids))
+		t.Fatalf("Query[testComponent2] returned %d entities, want 2", len(ids))
 	}
 
 	found := make(map[EntityID]bool)
@@ -105,7 +119,7 @@ func TestWorld_QueryMatchesComponents(t *testing.T) {
 		t.Errorf("Query should return entities a and b, got %v", ids)
 	}
 	if found[c] {
-		t.Error("Query should NOT return entity c (no Health)")
+		t.Error("Query should NOT return entity c (no testComponent2)")
 	}
 }
 
@@ -130,7 +144,7 @@ func TestWorld_GetPanicsOnDeadEntity(t *testing.T) {
 			t.Error("Get on dead entity should panic")
 		}
 	}()
-	Get[Health](w, EntityID(999))
+	Get[testComponent2](w, EntityID(999))
 }
 
 func TestWorld_GetPanicsOnMissingComponent(t *testing.T) {
@@ -141,7 +155,7 @@ func TestWorld_GetPanicsOnMissingComponent(t *testing.T) {
 			t.Error("Get on missing component should panic")
 		}
 	}()
-	Get[Health](w, id)
+	Get[testComponent2](w, id)
 }
 
 func TestWorld_AttachPanicsOnDeadEntity(t *testing.T) {
@@ -151,7 +165,7 @@ func TestWorld_AttachPanicsOnDeadEntity(t *testing.T) {
 			t.Error("Attach on dead entity should panic")
 		}
 	}()
-	Attach(w, EntityID(999), Health{State: Active})
+	Attach(w, EntityID(999), testComponent2{State: "active"})
 }
 
 func TestWorld_ConcurrentSafety(t *testing.T) {
@@ -164,11 +178,11 @@ func TestWorld_ConcurrentSafety(t *testing.T) {
 			defer wg.Done()
 			for range 100 {
 				id := w.Spawn()
-				Attach(w, id, Health{State: Active})
-				Attach(w, id, ColorIdentity{Colour: "Test"})
-				_ = Get[Health](w, id)
-				_, _ = TryGet[ColorIdentity](w, id)
-				_ = Query[Health](w)
+				Attach(w, id, testComponent2{State: "active"})
+				Attach(w, id, testComponent{Value: "Test"})
+				_ = Get[testComponent2](w, id)
+				_, _ = TryGet[testComponent](w, id)
+				_ = Query[testComponent2](w)
 			}
 		}()
 	}

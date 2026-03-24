@@ -6,25 +6,27 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
 	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/transport"
+	"github.com/dpopsuev/bugle/world"
 )
 
 func TestQuickWorld_CreatesNAgents(t *testing.T) {
-	world, agents := QuickWorld(5, "TestTeam")
+	w, agents := QuickWorld(5, "TestTeam")
 
 	if len(agents) != 5 {
 		t.Fatalf("len(agents) = %d, want 5", len(agents))
 	}
-	if world.Count() != 5 {
-		t.Errorf("world.Count() = %d, want 5", world.Count())
+	if w.Count() != 5 {
+		t.Errorf("world.Count() = %d, want 5", w.Count())
 	}
 	for i, id := range agents {
-		if !world.Alive(id) {
+		if !w.Alive(id) {
 			t.Errorf("agent %d (id=%d) should be alive", i, id)
 		}
-		AssertEntityHas[bugle.ColorIdentity](t, world, id)
-		AssertEntityHas[bugle.Health](t, world, id)
+		AssertEntityHas[palette.ColorIdentity](t, w, id)
+		AssertEntityHas[bugle.Health](t, w, id)
 	}
 }
 
@@ -40,13 +42,13 @@ func TestQuickWorld_UniqueIdentities(t *testing.T) {
 }
 
 func TestQuickTransport_RegistersHandlers(t *testing.T) {
-	world, agents := QuickWorld(3, "TransportTeam")
-	tr := QuickTransport(world, agents)
+	w, agents := QuickWorld(3, "TransportTeam")
+	tr := QuickTransport(w, agents)
 	defer tr.Close()
 
 	// Each agent's Short() (colour name) should be registered as a handler.
 	for _, id := range agents {
-		color := bugle.Get[bugle.ColorIdentity](world, id)
+		color := world.Get[palette.ColorIdentity](w, id)
 		task, err := tr.SendMessage(context.Background(), color.Short(), transport.Message{
 			From:         "test-sender",
 			To:           color.Short(),

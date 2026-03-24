@@ -1,6 +1,11 @@
 package bugle
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/dpopsuev/bugle/palette"
+	"github.com/dpopsuev/bugle/world"
+)
 
 // Feature: ECS World Lifecycle
 
@@ -10,16 +15,16 @@ func TestAcceptance_CreateAgentIn2Lines(t *testing.T) {
 	//   When I spawn an agent and attach a ColorIdentity
 	//   Then the agent is alive and the identity is queryable
 
-	world := NewWorld()
-	agent := world.Spawn()
-	Attach(world, agent, ColorIdentity{
+	w := world.NewWorld()
+	agent := w.Spawn()
+	world.Attach(w, agent, palette.ColorIdentity{
 		Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
 	})
 
-	if !world.Alive(agent) {
+	if !w.Alive(agent) {
 		t.Fatal("agent should be alive")
 	}
-	title := Get[ColorIdentity](world, agent).Title()
+	title := world.Get[palette.ColorIdentity](w, agent).Title()
 	if title != "Denim Writer of Indigo Refactor" {
 		t.Errorf("Title = %q, want 'Denim Writer of Indigo Refactor'", title)
 	}
@@ -31,15 +36,15 @@ func TestAcceptance_QueryActiveAgents(t *testing.T) {
 	//   When I query for Health components
 	//   Then all 3 are returned (query matches by component presence, not value)
 
-	world := NewWorld()
-	a := world.Spawn()
-	b := world.Spawn()
-	c := world.Spawn()
-	Attach(world, a, Health{State: Active})
-	Attach(world, b, Health{State: Active})
-	Attach(world, c, Health{State: Done})
+	w := world.NewWorld()
+	a := w.Spawn()
+	b := w.Spawn()
+	c := w.Spawn()
+	world.Attach(w, a, Health{State: Active})
+	world.Attach(w, b, Health{State: Active})
+	world.Attach(w, c, Health{State: Done})
 
-	ids := Query[Health](world)
+	ids := world.Query[Health](w)
 	if len(ids) != 3 {
 		t.Errorf("Query[Health] = %d entities, want 3", len(ids))
 	}
@@ -51,17 +56,17 @@ func TestAcceptance_DespawnRemovesEverything(t *testing.T) {
 	//   When despawned
 	//   Then the agent is not alive and components are gone
 
-	world := NewWorld()
-	agent := world.Spawn()
-	Attach(world, agent, ColorIdentity{Colour: "Denim"})
-	Attach(world, agent, Health{State: Active})
+	w := world.NewWorld()
+	agent := w.Spawn()
+	world.Attach(w, agent, palette.ColorIdentity{Colour: "Denim"})
+	world.Attach(w, agent, Health{State: Active})
 
-	world.Despawn(agent)
+	w.Despawn(agent)
 
-	if world.Alive(agent) {
+	if w.Alive(agent) {
 		t.Error("agent should not be alive after despawn")
 	}
-	if _, ok := TryGet[ColorIdentity](world, agent); ok {
+	if _, ok := world.TryGet[palette.ColorIdentity](w, agent); ok {
 		t.Error("ColorIdentity should be gone after despawn")
 	}
 }
@@ -71,7 +76,7 @@ func TestAcceptance_DespawnRemovesEverything(t *testing.T) {
 func TestAcceptance_HeraldicNaming(t *testing.T) {
 	// Scenario: Heraldic naming — Title returns "Denim Writer of Indigo Refactor"
 
-	c := ColorIdentity{
+	c := palette.ColorIdentity{
 		Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
 	}
 	if c.Title() != "Denim Writer of Indigo Refactor" {
@@ -88,7 +93,7 @@ func TestAcceptance_HeraldicNaming(t *testing.T) {
 func TestAcceptance_RegistryAssignsUniqueColours(t *testing.T) {
 	// Scenario: 10 agents in same collective get unique colours
 
-	reg := NewRegistry()
+	reg := palette.NewRegistry()
 	seen := make(map[string]bool)
 
 	for range 10 {
@@ -111,7 +116,7 @@ func TestAcceptance_RegistryAssignsUniqueColours(t *testing.T) {
 func TestAcceptance_RegistryReleaseAndReuse(t *testing.T) {
 	// Scenario: Released colour returns to pool
 
-	reg := NewRegistry()
+	reg := palette.NewRegistry()
 	id, _ := reg.Set("Azure", "Cerulean", "Coder", "TestTeam")
 	reg.Release(id)
 
@@ -130,20 +135,20 @@ func TestAcceptance_RegistryReleaseAndReuse(t *testing.T) {
 func TestAcceptance_DefaultStrategyCreatesAgent(t *testing.T) {
 	// Scenario: DefaultStrategy creates agent with identity + health
 
-	world := NewWorld()
-	reg := NewRegistry()
-	strategy := NewDefaultStrategy(world, reg)
+	w := world.NewWorld()
+	reg := palette.NewRegistry()
+	strategy := NewDefaultStrategy(w, reg)
 
 	id, err := strategy.Resolve("Coder", "Refactor")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	if !world.Alive(id) {
+	if !w.Alive(id) {
 		t.Fatal("agent should be alive")
 	}
 
-	color, ok := TryGet[ColorIdentity](world, id)
+	color, ok := world.TryGet[palette.ColorIdentity](w, id)
 	if !ok {
 		t.Fatal("agent should have ColorIdentity")
 	}
@@ -154,7 +159,7 @@ func TestAcceptance_DefaultStrategyCreatesAgent(t *testing.T) {
 		t.Errorf("Collective = %q, want Refactor", color.Collective)
 	}
 
-	health, ok := TryGet[Health](world, id)
+	health, ok := world.TryGet[Health](w, id)
 	if !ok {
 		t.Fatal("agent should have Health")
 	}
@@ -166,9 +171,9 @@ func TestAcceptance_DefaultStrategyCreatesAgent(t *testing.T) {
 func TestAcceptance_MultipleResolvesProduceUniqueIdentities(t *testing.T) {
 	// Scenario: Multiple resolves produce unique identities
 
-	world := NewWorld()
-	reg := NewRegistry()
-	strategy := NewDefaultStrategy(world, reg)
+	w := world.NewWorld()
+	reg := palette.NewRegistry()
+	strategy := NewDefaultStrategy(w, reg)
 
 	seen := make(map[string]bool)
 	for range 5 {
@@ -176,7 +181,7 @@ func TestAcceptance_MultipleResolvesProduceUniqueIdentities(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Resolve: %v", err)
 		}
-		color := Get[ColorIdentity](world, id)
+		color := world.Get[palette.ColorIdentity](w, id)
 		key := color.Shade + "·" + color.Colour
 		if seen[key] {
 			t.Errorf("duplicate identity: %s", key)
@@ -190,14 +195,14 @@ func TestAcceptance_MultipleResolvesProduceUniqueIdentities(t *testing.T) {
 func TestAcceptance_READMEExample(t *testing.T) {
 	// The README test: if this doesn't compile and run, the API is wrong.
 
-	world := NewWorld()
-	agent := world.Spawn()
-	Attach(world, agent, ColorIdentity{
+	w := world.NewWorld()
+	agent := w.Spawn()
+	world.Attach(w, agent, palette.ColorIdentity{
 		Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
 	})
-	Attach(world, agent, Health{State: Active})
+	world.Attach(w, agent, Health{State: Active})
 
-	title := Get[ColorIdentity](world, agent).Title()
+	title := world.Get[palette.ColorIdentity](w, agent).Title()
 	if title != "Denim Writer of Indigo Refactor" {
 		t.Errorf("README example broken: Title = %q", title)
 	}

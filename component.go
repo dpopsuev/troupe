@@ -1,17 +1,17 @@
 package bugle
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/dpopsuev/bugle/world"
 )
 
 // Component type constants.
 const (
-	ColorIdentityType ComponentType = "color_identity"
-	HealthType        ComponentType = "health"
-	HierarchyType     ComponentType = "hierarchy"
-	BudgetType        ComponentType = "budget"
-	ProgressType      ComponentType = "progress"
+	HealthType    world.ComponentType = "health"
+	HierarchyType world.ComponentType = "hierarchy"
+	BudgetType    world.ComponentType = "budget"
+	ProgressType  world.ComponentType = "progress"
 )
 
 // AgentState represents the liveness state of an agent.
@@ -25,31 +25,6 @@ const (
 	Done    AgentState = "done"
 )
 
-// ColorIdentity is the visual identity for humans.
-// Format: "Denim Writer of Indigo Refactor" (Colour Role of Shade Collective).
-type ColorIdentity struct {
-	Shade      string `json:"shade"`      // group family: "Indigo", "Crimson"
-	Colour     string `json:"colour"`     // individual: "Denim", "Scarlet"
-	Role       string `json:"role"`       // function: "Writer", "Reviewer"
-	Collective string `json:"collective"` // formation: "Refactor", "Triage"
-	Hex        string `json:"hex"`        // CSS hex: "#6F8FAF"
-}
-
-func (ColorIdentity) componentType() ComponentType { return ColorIdentityType }
-
-// Title returns the heraldic name: "Denim Writer of Indigo Refactor".
-func (c ColorIdentity) Title() string { //nolint:gocritic // value receiver needed for ECS Get[T]
-	return fmt.Sprintf("%s %s of %s %s", c.Colour, c.Role, c.Shade, c.Collective)
-}
-
-// Label returns the compact log format: "[Indigo·Denim|Writer]".
-func (c ColorIdentity) Label() string { //nolint:gocritic // value receiver needed for ECS Get[T]
-	return fmt.Sprintf("[%s·%s|%s]", c.Shade, c.Colour, c.Role)
-}
-
-// Short returns just the colour name: "Denim".
-func (c ColorIdentity) Short() string { return c.Colour } //nolint:gocritic // value receiver
-
 // Health tracks agent liveness and status.
 type Health struct {
 	State    AgentState `json:"state"`
@@ -57,14 +32,16 @@ type Health struct {
 	Error    string     `json:"error,omitempty"`
 }
 
-func (Health) componentType() ComponentType { return HealthType }
+// ComponentType implements world.Component.
+func (Health) ComponentType() world.ComponentType { return HealthType }
 
 // Hierarchy represents a parent-child relationship (collective owns agents).
 type Hierarchy struct {
-	Parent EntityID `json:"parent"` // 0 = root / no parent
+	Parent world.EntityID `json:"parent"` // 0 = root / no parent
 }
 
-func (Hierarchy) componentType() ComponentType { return HierarchyType }
+// ComponentType implements world.Component.
+func (Hierarchy) ComponentType() world.ComponentType { return HierarchyType }
 
 // Budget tracks cost per entity.
 type Budget struct {
@@ -73,7 +50,8 @@ type Budget struct {
 	Ceiling    float64 `json:"ceiling"`
 }
 
-func (Budget) componentType() ComponentType { return BudgetType }
+// ComponentType implements world.Component.
+func (Budget) ComponentType() world.ComponentType { return BudgetType }
 
 // Progress tracks task completion.
 type Progress struct {
@@ -82,4 +60,5 @@ type Progress struct {
 	Percent float64 `json:"percent"`
 }
 
-func (Progress) componentType() ComponentType { return ProgressType }
+// ComponentType implements world.Component.
+func (Progress) ComponentType() world.ComponentType { return ProgressType }

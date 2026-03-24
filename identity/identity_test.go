@@ -1,4 +1,4 @@
-package bugle
+package identity
 
 import "testing"
 

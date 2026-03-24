@@ -1,48 +1,27 @@
 package bugle
 
-import "testing"
+import (
+	"testing"
 
-func TestColorIdentity_Title(t *testing.T) {
-	c := ColorIdentity{Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor"}
-	want := "Denim Writer of Indigo Refactor"
-	if got := c.Title(); got != want {
-		t.Errorf("Title() = %q, want %q", got, want)
-	}
-}
-
-func TestColorIdentity_Label(t *testing.T) {
-	c := ColorIdentity{Shade: "Indigo", Colour: "Denim", Role: "Writer"}
-	want := "[Indigo·Denim|Writer]"
-	if got := c.Label(); got != want {
-		t.Errorf("Label() = %q, want %q", got, want)
-	}
-}
-
-func TestColorIdentity_Short(t *testing.T) {
-	c := ColorIdentity{Colour: "Denim"}
-	if got := c.Short(); got != "Denim" {
-		t.Errorf("Short() = %q, want Denim", got)
-	}
-}
+	"github.com/dpopsuev/bugle/world"
+)
 
 func TestComponent_InterfaceCompliance(t *testing.T) {
-	// Verify all core components implement Component.
-	var _ Component = ColorIdentity{}
-	var _ Component = Health{}
-	var _ Component = Hierarchy{}
-	var _ Component = Budget{}
-	var _ Component = Progress{}
+	// Verify all core components implement world.Component.
+	var _ world.Component = Health{}
+	var _ world.Component = Hierarchy{}
+	var _ world.Component = Budget{}
+	var _ world.Component = Progress{}
 }
 
 func TestComponent_UniqueTypes(t *testing.T) {
-	types := map[ComponentType]string{
-		ColorIdentity{}.componentType(): "ColorIdentity",
-		Health{}.componentType():        "Health",
-		Hierarchy{}.componentType():     "Hierarchy",
-		Budget{}.componentType():        "Budget",
-		Progress{}.componentType():      "Progress",
+	types := map[world.ComponentType]string{
+		Health{}.ComponentType():    "Health",
+		Hierarchy{}.ComponentType(): "Hierarchy",
+		Budget{}.ComponentType():    "Budget",
+		Progress{}.ComponentType():  "Progress",
 	}
-	if len(types) != 5 {
-		t.Errorf("expected 5 unique component types, got %d (collision)", len(types))
+	if len(types) != 4 {
+		t.Errorf("expected 4 unique component types, got %d (collision)", len(types))
 	}
 }

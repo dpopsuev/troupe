@@ -2,23 +2,24 @@
 // with A2A protocol support.
 //
 // Bugle provides:
-//   - ECS World (entity registry, component storage, system queries)
-//   - Agent identity (ColorIdentity with heraldic naming)
-//   - Behavioral profiles (Element, Approach)
-//   - Signal bus (Bus, DurableBus)
-//   - Health tracking (HealthSystem)
-//   - A2A transport (LocalTransport, HTTPTransport)
-//   - Observable state (WorldView, Minimap)
+//   - ECS World (world/ — entity registry, component storage, system queries)
+//   - Agent identity (identity/ — AgentIdentity, ModelIdentity, Persona)
+//   - Heraldic color system (palette/ — ColorIdentity, Registry, Shade/Colour)
+//   - Behavioral profiles (element/ — Element, Approach)
+//   - Signal bus (signal/ — Bus, DurableBus)
+//   - Health tracking (root — Health, Hierarchy, Budget, Progress)
+//   - A2A transport (transport/ — LocalTransport, HTTPTransport)
+//   - Observable state (worldview/ — View, Snapshot, Minimap)
 //
 // Identity is the primitive. Protocol is the adapter.
 //
 // Usage:
 //
-//	world := bugle.NewWorld()
-//	agent := world.Spawn()
-//	bugle.Attach(world, agent, bugle.ColorIdentity{
+//	w := world.NewWorld()
+//	agent := w.Spawn()
+//	world.Attach(w, agent, palette.ColorIdentity{
 //	    Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
 //	})
-//	fmt.Println(bugle.Get[bugle.ColorIdentity](world, agent).Title())
+//	fmt.Println(world.Get[palette.ColorIdentity](w, agent).Title())
 //	// → "Denim Writer of Indigo Refactor"
 package bugle

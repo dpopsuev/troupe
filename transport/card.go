@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/dpopsuev/bugle"
+	"github.com/dpopsuev/bugle/palette"
+	"github.com/dpopsuev/bugle/world"
 )
 
 // AgentCard is the A2A-compatible agent descriptor published for discovery.
@@ -25,19 +27,19 @@ type AgentCard struct {
 //   - Health → Metadata["health"]
 //   - Transport defaults to "local"
 //   - ID = "agent-{entityID}"
-func CardFromEntity(w *bugle.World, id bugle.EntityID) AgentCard {
+func CardFromEntity(w *world.World, id world.EntityID) AgentCard {
 	card := AgentCard{
 		ID:        fmt.Sprintf("agent-%d", id),
 		Transport: "local",
 		Metadata:  make(map[string]string),
 	}
 
-	if color, ok := bugle.TryGet[bugle.ColorIdentity](w, id); ok {
+	if color, ok := world.TryGet[palette.ColorIdentity](w, id); ok {
 		card.Name = color.Title()
 		card.Role = color.Role
 	}
 
-	if health, ok := bugle.TryGet[bugle.Health](w, id); ok {
+	if health, ok := world.TryGet[bugle.Health](w, id); ok {
 		card.Metadata["health"] = string(health.State)
 	}
 
