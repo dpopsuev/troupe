@@ -22,10 +22,18 @@ type CommandFactory func(ctx context.Context, name string, args ...string) *exec
 
 // Known ACP agent launch commands.
 var AgentCommands = map[string][]string{
-	"cursor": {"agent", "acp"},
-	"claude": {"claude", "--experimental-acp"},
-	"gemini": {"gemini", "--experimental-acp"},
-	"codex":  {"codex-acp"},
+	"cursor":   {"agent", "acp"},
+	"claude":   {"claude", "--experimental-acp"},
+	"gemini":   {"gemini", "--experimental-acp"},
+	"codex":    {"codex-acp"},
+	"kiro":     {"kiro-cli", "acp"},
+	"goose":    {"goose", "acp"},
+	"opencode": {"opencode", "acp"},
+	"cline":    {"cline", "acp"},
+	"auggie":   {"auggie", "--acp"},
+	"devstral": {"devstral", "acp"},
+	"qwen":     {"qwen-code", "acp"},
+	"kimi":     {"kimi", "acp"},
 }
 
 // ClientInfo identifies the ACP client during handshake.

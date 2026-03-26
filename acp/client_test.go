@@ -41,7 +41,7 @@ done
 `
 
 func TestNewClient_ValidAgent(t *testing.T) {
-	for _, name := range []string{"cursor", "claude", "gemini", "codex"} {
+	for _, name := range []string{"cursor", "claude", "gemini", "codex", "kiro", "goose", "opencode", "cline", "auggie", "devstral", "qwen", "kimi"} {
 		c, err := NewClient(name)
 		if err != nil {
 			t.Fatalf("NewClient(%q): %v", name, err)
