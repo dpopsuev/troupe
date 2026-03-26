@@ -23,8 +23,8 @@ type CommandFactory func(ctx context.Context, name string, args ...string) *exec
 // Known ACP agent launch commands.
 var AgentCommands = map[string][]string{
 	"cursor":   {"agent", "acp"},
-	"claude":   {"claude", "--experimental-acp"},
-	"gemini":   {"gemini", "--experimental-acp"},
+	"claude":   {"npx", "@agentclientprotocol/claude-agent-acp"},
+	"gemini":   {"gemini", "--acp"},
 	"codex":    {"codex-acp"},
 	"kiro":     {"kiro-cli", "acp"},
 	"goose":    {"goose", "acp"},
