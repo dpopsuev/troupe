@@ -119,6 +119,14 @@ func wireACPToTransport(t *testing.T, launcher *acp.ACPLauncher, solo *agent.Sol
 	})
 }
 
+// truncate shortens a string to n chars for log output.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // 1. Smoke Tests ($0)
 // ═══════════════════════════════════════════════════════════════════════
@@ -270,7 +278,14 @@ func TestAcceptance_Collective_DialecticDebate(t *testing.T) {
 		t.Fatal("empty response from dialectic debate")
 	}
 
-	t.Logf("dialectic result (%d chars): %s", len(result), result[:min(len(result), 200)])
+	// Log round-by-round debate transcript for debugging.
+	rounds := coll.DebateRounds()
+	for i, r := range rounds {
+		t.Logf("=== Round %d (converged=%v) ===", i+1, r.Converged)
+		t.Logf("  THESIS:     %s", truncate(r.ThesisResponse, 300))
+		t.Logf("  ANTITHESIS: %s", truncate(r.AntithesisResponse, 300))
+	}
+	t.Logf("=== Synthesis (%d chars) ===\n%s", len(result), truncate(result, 500))
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -684,6 +699,15 @@ func TestAcceptance_MultiProvider_Debate(t *testing.T) {
 	if result == "" {
 		t.Fatal("empty response from cross-provider debate")
 	}
+
+	// Log round-by-round transcript.
+	rounds := coll.DebateRounds()
+	for i, r := range rounds {
+		t.Logf("=== Round %d (converged=%v) ===", i+1, r.Converged)
+		t.Logf("  CURSOR (thesis):  %s", truncate(r.ThesisResponse, 300))
+		t.Logf("  CLAUDE (antithesis): %s", truncate(r.AntithesisResponse, 300))
+	}
+	t.Logf("=== Synthesis (%d chars) ===\n%s", len(result), truncate(result, 500))
 
 	t.Logf("CROSS-PROVIDER DEBATE result (%d chars): %s",
 		len(result), result[:min(len(result), 300)])
