@@ -20,8 +20,8 @@ import (
 const (
 	logKeyWorker = "worker"
 	logKeyAgent  = "agent"
-	logKeySteps  = "steps"
-	logKeyStep   = "step"
+	logKeyItems  = "steps"
+	logKeyItem   = "item"
 	logKeyError  = "error"
 )
 
@@ -29,9 +29,9 @@ const (
 type WorkerConfig struct {
 	// MCP tool name (default: bugle.DefaultToolName).
 	ToolName string
-	// Action value for pulling work (default: bugle.ActionStep).
+	// Action for pulling work (default: bugle.ActionPull).
 	PullAction string
-	// Action value for submitting results (default: bugle.ActionSubmit).
+	// Action for pushing results (default: bugle.ActionPush).
 	PushAction string
 	// Session key name in arguments (default: bugle.DefaultSessionKey).
 	SessionKey string
@@ -41,8 +41,8 @@ type WorkerConfig struct {
 	HornFunc func() *bugle.Horn
 	// BudgetFunc is called before submit to report resource consumption. Nil = omit.
 	BudgetFunc func() *bugle.BudgetActual
-	// OnStep is called after each step response with protocol metadata. Nil = no-op.
-	OnStep func(bugle.StepMeta)
+	// OnPull is called after each pull response with protocol metadata. Nil = no-op.
+	OnPull func(bugle.PullMeta)
 }
 
 func (c *WorkerConfig) defaults() {
@@ -50,10 +50,10 @@ func (c *WorkerConfig) defaults() {
 		c.ToolName = bugle.DefaultToolName
 	}
 	if c.PullAction == "" {
-		c.PullAction = string(bugle.ActionStep)
+		c.PullAction = string(bugle.ActionPull)
 	}
 	if c.PushAction == "" {
-		c.PushAction = string(bugle.ActionSubmit)
+		c.PushAction = string(bugle.ActionPush)
 	}
 	if c.SessionKey == "" {
 		c.SessionKey = bugle.DefaultSessionKey
@@ -109,45 +109,45 @@ func RunWorker(ctx context.Context, endpoint, agentName, sessionID, workerName s
 		}
 
 		text := textContent(result)
-		var stepResp bugle.StepResponse
-		if err := json.Unmarshal([]byte(text), &stepResp); err != nil {
+		var pullResp bugle.PullResponse
+		if err := json.Unmarshal([]byte(text), &pullResp); err != nil {
 			return fmt.Errorf("parse step: %w", err)
 		}
 
 		// Notify callback with protocol metadata.
-		if cfg.OnStep != nil {
-			cfg.OnStep(bugle.StepMeta{
-				Horn:            stepResp.Horn,
-				BudgetRemaining: stepResp.BudgetRemaining,
+		if cfg.OnPull != nil {
+			cfg.OnPull(bugle.PullMeta{
+				Horn:            pullResp.Horn,
+				BudgetRemaining: pullResp.BudgetRemaining,
 			})
 		}
 
 		// Horn black = abort signal.
-		if stepResp.Horn == bugle.HornBlack {
+		if pullResp.Horn == bugle.HornBlack {
 			slog.WarnContext(ctx, "abort signal received",
 				slog.String(logKeyWorker, workerName))
 			return nil
 		}
 
-		if stepResp.Done {
+		if pullResp.Done {
 			slog.InfoContext(ctx, "work complete",
 				slog.String(logKeyWorker, workerName),
-				slog.Int(logKeySteps, steps))
+				slog.Int(logKeyItems, steps))
 			return nil
 		}
-		if !stepResp.Available {
+		if !pullResp.Available {
 			continue
 		}
 
-		response, err := handle.Ask(ctx, stepResp.PromptContent)
+		response, err := handle.Ask(ctx, pullResp.PromptContent)
 		if err != nil {
 			slog.ErrorContext(ctx, "agent ask failed",
 				slog.String(logKeyWorker, workerName),
-				slog.String(logKeyStep, stepResp.Step),
+				slog.String(logKeyItem, pullResp.Item),
 				slog.Any(logKeyError, err))
 
 			// Submit as blocked instead of silently continuing.
-			submitBlocked(ctx, session, cfg, sessionID, workerID, stepResp, err)
+			submitBlocked(ctx, session, cfg, sessionID, workerID, pullResp, err)
 			continue
 		}
 
@@ -155,8 +155,8 @@ func RunWorker(ctx context.Context, endpoint, agentName, sessionID, workerName s
 			"action":       cfg.PushAction,
 			cfg.SessionKey: sessionID,
 			"worker_id":    workerID,
-			"dispatch_id":  stepResp.DispatchID,
-			"step":         stepResp.Step,
+			"dispatch_id":  pullResp.DispatchID,
+			"item":         pullResp.Item,
 			"fields":       json.RawMessage(response),
 		}
 		if cfg.HornFunc != nil {
@@ -177,7 +177,7 @@ func RunWorker(ctx context.Context, endpoint, agentName, sessionID, workerName s
 		if err != nil {
 			slog.WarnContext(ctx, "submit failed",
 				slog.String(logKeyWorker, workerName),
-				slog.String(logKeyStep, stepResp.Step),
+				slog.String(logKeyItem, pullResp.Item),
 				slog.Any(logKeyError, err))
 		}
 		steps++
@@ -214,13 +214,13 @@ func connectEndpoint(ctx context.Context, endpoint, workerName string) (*sdkmcp.
 }
 
 // submitBlocked sends a blocked status when the agent fails.
-func submitBlocked(ctx context.Context, session *sdkmcp.ClientSession, cfg WorkerConfig, sessionID, workerID string, stepResp bugle.StepResponse, askErr error) {
+func submitBlocked(ctx context.Context, session *sdkmcp.ClientSession, cfg WorkerConfig, sessionID, workerID string, pullResp bugle.PullResponse, askErr error) {
 	blockedArgs := map[string]any{
 		"action":       cfg.PushAction,
 		cfg.SessionKey: sessionID,
 		"worker_id":    workerID,
-		"dispatch_id":  stepResp.DispatchID,
-		"step":         stepResp.Step,
+		"dispatch_id":  pullResp.DispatchID,
+		"item":         pullResp.Item,
 		"status":       bugle.StatusBlocked,
 		"fields":       map[string]any{"reason": askErr.Error()},
 	}
@@ -230,7 +230,7 @@ func submitBlocked(ctx context.Context, session *sdkmcp.ClientSession, cfg Worke
 	})
 	if err != nil {
 		slog.WarnContext(ctx, "submit blocked failed",
-			slog.String(logKeyStep, stepResp.Step),
+			slog.String(logKeyItem, pullResp.Item),
 			slog.Any(logKeyError, err))
 	}
 }

@@ -6,8 +6,8 @@ type Action string
 // Core actions (Layer 0 — required).
 const (
 	ActionStart  Action = "start"
-	ActionStep   Action = "step"
-	ActionSubmit Action = "submit"
+	ActionPull   Action = "pull"
+	ActionPush   Action = "push"
 	ActionCancel Action = "cancel"
 )
 

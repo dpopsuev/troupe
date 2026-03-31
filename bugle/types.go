@@ -24,10 +24,10 @@ type StartResponse struct {
 	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
-// --- Step ---
+// --- Pull ---
 
-// StepRequest pulls the next work item.
-type StepRequest struct {
+// PullRequest pulls the next available work item.
+type PullRequest struct {
 	Action    Action     `json:"action"`
 	SessionID string     `json:"session_id"`
 	WorkerID  string     `json:"worker_id,omitempty"`
@@ -36,26 +36,26 @@ type StepRequest struct {
 	Auth      *AuthToken `json:"auth,omitempty"`
 }
 
-// StepResponse returns a work item or signals completion.
-type StepResponse struct {
+// PullResponse returns a work item or signals completion.
+type PullResponse struct {
 	Done            bool             `json:"done"`
 	Available       bool             `json:"available"`
-	Step            string           `json:"step,omitempty"`
+	Item            string           `json:"item,omitempty"`
 	PromptContent   string           `json:"prompt_content,omitempty"`
 	DispatchID      int64            `json:"dispatch_id,omitempty"`
 	Horn            HornLevel        `json:"horn,omitempty"` // session-level severity
 	BudgetRemaining *BudgetRemaining `json:"budget_remaining,omitempty"`
 }
 
-// --- Submit ---
+// --- Push ---
 
-// SubmitRequest returns the result for a dispatched work item.
-type SubmitRequest struct {
+// PushRequest returns the result for a dispatched work item.
+type PushRequest struct {
 	Action     Action          `json:"action"`
 	SessionID  string          `json:"session_id"`
 	WorkerID   string          `json:"worker_id,omitempty"`
 	DispatchID int64           `json:"dispatch_id"`
-	Step       string          `json:"step"`
+	Item       string          `json:"item"`
 	Fields     json.RawMessage `json:"fields"`
 	Status     SubmitStatus    `json:"status,omitempty"` // default: ok
 	Horn       *Horn           `json:"horn,omitempty"`
@@ -63,8 +63,8 @@ type SubmitRequest struct {
 	Auth       *AuthToken      `json:"auth,omitempty"`
 }
 
-// SubmitResponse acknowledges a submission.
-type SubmitResponse struct {
+// PushResponse acknowledges a submission.
+type PushResponse struct {
 	OK bool `json:"ok"`
 }
 
@@ -134,10 +134,10 @@ type AuthToken struct {
 	Token string `json:"token"`
 }
 
-// --- Step Meta (for worker callbacks) ---
+// --- Pull Meta (for worker callbacks) ---
 
-// StepMeta carries protocol metadata from a step response for worker callbacks.
-type StepMeta struct {
+// PullMeta carries protocol metadata from a pull response for worker callbacks.
+type PullMeta struct {
 	Horn            HornLevel        `json:"horn,omitempty"`
 	BudgetRemaining *BudgetRemaining `json:"budget_remaining,omitempty"`
 }
