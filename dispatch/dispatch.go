@@ -43,24 +43,6 @@ type Context struct {
 	Timeout       time.Duration // per-dispatch deadline; 0 = no limit (backward compatible)
 }
 
-// PullHints allows workers to declare preferences when pulling steps.
-// The dispatcher tries to match hints against available Contexts.
-type PullHints struct {
-	PreferredCaseID   string // prefer steps for this case (e.g. "C3")
-	PreferredZone     string // prefer steps from this zone (matched against Context.Provider)
-	Stickiness        int    // 0=any, 1=slight preference, 2=strong, 3=exclusive (never steal)
-	ConsecutiveMisses int    // caller-tracked: how many polls returned no match (enables work stealing)
-}
-
-// ExternalDispatcher is the agent-facing side of a mux dispatcher.
-// Any external agent (MCP server, CLI AI, HTTP API) uses this interface
-// to pull circuit steps and submit artifacts with correct routing.
-type ExternalDispatcher interface {
-	GetNextStep(ctx context.Context) (Context, error)
-	GetNextStepWithHints(ctx context.Context, hints PullHints) (Context, error)
-	SubmitArtifact(ctx context.Context, dispatchID int64, data []byte) error
-}
-
 // Finalizer is an optional interface for dispatchers that need post-dispatch
 // cleanup (e.g. updating signal files). Components check for this interface
 // instead of type-asserting specific dispatcher implementations.
