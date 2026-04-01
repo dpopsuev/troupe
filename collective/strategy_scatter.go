@@ -15,8 +15,13 @@ type Scatter struct {
 	Separator string // default "\n"
 }
 
-// Orchestrate sends the prompt to all agents concurrently and joins responses.
-func (s *Scatter) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+// Select returns all agents — Scatter fans out to everyone.
+func (*Scatter) Select(_ context.Context, agents []*agent.Solo) []*agent.Solo {
+	return agents
+}
+
+// Execute sends the prompt to all agents concurrently and joins responses.
+func (s *Scatter) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
 	if len(agents) == 0 {
 		return "", ErrNoAgents
 	}
@@ -45,7 +50,6 @@ func (s *Scatter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 	}
 	wg.Wait()
 
-	// Collect successful responses in order.
 	var parts []string
 	for _, r := range results {
 		if r.err == nil {
@@ -54,8 +58,14 @@ func (s *Scatter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 	}
 
 	if len(parts) == 0 {
-		return "", results[0].err // all failed, return first error
+		return "", results[0].err
 	}
 
 	return strings.Join(parts, sep), nil
+}
+
+// Orchestrate sends the prompt to all agents concurrently and joins responses.
+func (s *Scatter) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	selected := s.Select(ctx, agents)
+	return s.Execute(ctx, prompt, selected)
 }

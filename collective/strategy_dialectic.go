@@ -35,24 +35,30 @@ func (d *Dialectic) defaults() (maxRounds int, convergenceWord string) {
 	return maxRounds, convergenceWord
 }
 
-// Orchestrate runs the dialectic debate between agents[0] (thesis) and
+// Select returns the first two agents (thesis + antithesis).
+func (*Dialectic) Select(_ context.Context, agents []*agent.Solo) []*agent.Solo {
+	if len(agents) < 2 { //nolint:mnd // dialectic requires at least 2
+		return agents
+	}
+	return agents[:2]
+}
+
+// Execute runs the dialectic debate between agents[0] (thesis) and
 // agents[1] (antithesis). Returns the thesis's last response as synthesis.
-func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
-	if len(agents) < 2 {
+func (d *Dialectic) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	if len(agents) < 2 { //nolint:mnd // dialectic requires at least 2
 		return "", fmt.Errorf("%w, got %d", ErrTooFewAgentsDialectic, len(agents))
 	}
 
 	maxRounds, convergenceWord := d.defaults()
 	thesis, anti := agents[0], agents[1]
 
-	// Round 1: thesis drafts.
 	thesisResp, err := thesis.Ask(ctx, prompt)
 	if err != nil {
 		return "", fmt.Errorf("thesis initial draft: %w", err)
 	}
 
 	for round := range maxRounds {
-		// Antithesis challenges.
 		antiPrompt := fmt.Sprintf(
 			"Original request:\n%s\n\nThesis response (round %d):\n%s\n\n"+
 				"Challenge this response. Identify flaws, missing considerations, "+
@@ -62,15 +68,13 @@ func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*ag
 		)
 		antiResp, err := anti.Ask(ctx, antiPrompt)
 		if err != nil {
-			return thesisResp, nil // antithesis error — return best thesis
+			return thesisResp, nil
 		}
 
-		// Check convergence.
 		if strings.Contains(antiResp, convergenceWord) {
 			return thesisResp, nil
 		}
 
-		// Thesis revises.
 		revisePrompt := fmt.Sprintf(
 			"Original request:\n%s\n\nYour previous response:\n%s\n\n"+
 				"Critique received:\n%s\n\n"+
@@ -79,11 +83,16 @@ func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*ag
 		)
 		revised, err := thesis.Ask(ctx, revisePrompt)
 		if err != nil {
-			return thesisResp, nil // revision error — return last good thesis
+			return thesisResp, nil
 		}
 		thesisResp = revised
 	}
 
-	// Max rounds exhausted — thesis wins.
 	return thesisResp, nil
+}
+
+// Orchestrate runs the dialectic debate. Composes Select + Execute.
+func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	selected := d.Select(ctx, agents)
+	return d.Execute(ctx, prompt, selected)
 }

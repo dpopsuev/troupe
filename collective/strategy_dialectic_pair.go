@@ -27,8 +27,16 @@ type DialecticPair struct {
 	MaxRounds int // dialectic convergence limit (default 5)
 }
 
-// Orchestrate runs dialectic convergence then pair execution.
-func (dp *DialecticPair) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+// Select returns exactly 2 agents (driver + navigator).
+func (*DialecticPair) Select(_ context.Context, agents []*agent.Solo) []*agent.Solo {
+	if len(agents) < 2 { //nolint:mnd // pair requires exactly 2
+		return agents
+	}
+	return agents[:2]
+}
+
+// Execute runs dialectic convergence then pair execution on the selected agents.
+func (dp *DialecticPair) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
 	if len(agents) != 2 { //nolint:mnd // exactly 2 agents required by design
 		return "", fmt.Errorf("%w, got %d", ErrDialecticPairRequiresTwo, len(agents))
 	}
@@ -40,24 +48,21 @@ func (dp *DialecticPair) Orchestrate(ctx context.Context, prompt string, agents 
 
 	driver, navigator := agents[0], agents[1]
 
-	// Phase 1: Dialectic convergence on a plan.
 	dialectic := &Dialectic{MaxRounds: maxRounds}
-	plan, err := dialectic.Orchestrate(ctx, prompt, agents)
+	plan, err := dialectic.Execute(ctx, prompt, agents)
 	if err != nil {
 		return "", fmt.Errorf("dialectic pair phase 1 (plan): %w", err)
 	}
 
-	// Phase 2: Driver executes the plan, Navigator reviews.
 	execPrompt := fmt.Sprintf(
 		"Agreed plan:\n%s\n\nExecute this plan. Produce the final output.",
 		plan,
 	)
 	driverResp, err := driver.Ask(ctx, execPrompt)
 	if err != nil {
-		return plan, nil // driver failed, return the plan at least
+		return plan, nil
 	}
 
-	// Navigator reviews driver output.
 	reviewPrompt := fmt.Sprintf(
 		"Original request:\n%s\n\nAgreed plan:\n%s\n\nDriver output:\n%s\n\n"+
 			"Review this output against the plan. If it correctly implements the plan, "+
@@ -66,22 +71,27 @@ func (dp *DialecticPair) Orchestrate(ctx context.Context, prompt string, agents 
 	)
 	navResp, err := navigator.Ask(ctx, reviewPrompt)
 	if err != nil {
-		return driverResp, nil // navigator error, return driver output
+		return driverResp, nil
 	}
 
 	if strings.Contains(strings.ToUpper(navResp), "APPROVED") {
 		return driverResp, nil
 	}
 
-	// Navigator rejected — driver gets one revision attempt.
 	revisePrompt := fmt.Sprintf(
 		"Your output was reviewed and rejected.\n\nFeedback:\n%s\n\nRevise your output to address the feedback.",
 		navResp,
 	)
 	revised, err := driver.Ask(ctx, revisePrompt)
 	if err != nil {
-		return driverResp, nil // revision failed, return original
+		return driverResp, nil
 	}
 
 	return revised, nil
+}
+
+// Orchestrate runs dialectic convergence then pair execution. Composes Select + Execute.
+func (dp *DialecticPair) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	selected := dp.Select(ctx, agents)
+	return dp.Execute(ctx, prompt, selected)
 }

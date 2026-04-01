@@ -4,7 +4,6 @@ package collective
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync/atomic"
 
 	"github.com/dpopsuev/jericho/agent"
@@ -19,22 +18,38 @@ type RoundRobin struct {
 	idx atomic.Uint64
 }
 
-// Orchestrate picks the next healthy agent and forwards the prompt.
-func (r *RoundRobin) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+// Select picks the next healthy agent via round-robin index.
+func (r *RoundRobin) Select(_ context.Context, agents []*agent.Solo) []*agent.Solo {
 	if len(agents) == 0 {
-		return "", fmt.Errorf("%w, got 0 agents", ErrNoHealthyAgents)
+		return nil
 	}
 
 	start := r.idx.Add(1) - 1
 	n := uint64(len(agents))
 
-	// Scan all agents starting from current index, skip unhealthy.
 	for i := range uint64(len(agents)) {
 		candidate := agents[(start+i)%n]
 		if candidate.IsReady() {
-			return candidate.Ask(ctx, prompt)
+			return []*agent.Solo{candidate}
 		}
 	}
 
-	return "", ErrNoHealthyAgents
+	return nil
+}
+
+// Execute forwards the prompt to the selected agent.
+func (*RoundRobin) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	if len(agents) == 0 {
+		return "", ErrNoHealthyAgents
+	}
+	return agents[0].Ask(ctx, prompt)
+}
+
+// Orchestrate picks the next healthy agent and forwards the prompt.
+func (r *RoundRobin) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	selected := r.Select(ctx, agents)
+	if len(selected) == 0 {
+		return "", ErrNoHealthyAgents
+	}
+	return r.Execute(ctx, prompt, selected)
 }

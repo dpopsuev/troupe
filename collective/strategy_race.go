@@ -12,9 +12,13 @@ import (
 // wins. Remaining agents are canceled via context.
 type Race struct{}
 
-// Orchestrate sends the prompt to all agents in parallel. Returns the first
-// response received. If all agents fail, returns the last error.
-func (Race) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+// Select returns all agents — Race fans out to everyone.
+func (Race) Select(_ context.Context, agents []*agent.Solo) []*agent.Solo {
+	return agents
+}
+
+// Execute sends the prompt to all agents in parallel, returns the first response.
+func (Race) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
 	if len(agents) == 0 {
 		return "", ErrNoAgents
 	}
@@ -47,4 +51,10 @@ func (Race) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo
 	}
 
 	return "", fmt.Errorf("race: all %d agents failed, last: %w", len(agents), lastErr)
+}
+
+// Orchestrate sends the prompt to all agents in parallel, returns the first response.
+func (r Race) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
+	selected := r.Select(ctx, agents)
+	return r.Execute(ctx, prompt, selected)
 }

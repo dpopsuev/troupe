@@ -26,8 +26,22 @@ var (
 )
 
 // CollectiveStrategy defines how agents collaborate inside a collective.
+// Composed of Selector (which agents) + Executor (how they coordinate).
+// Implementations should also implement Selector and Executor individually
+// so consumers can reuse selection logic without triggering execution.
 type CollectiveStrategy interface {
 	Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error)
+}
+
+// Selector picks which agents handle a unit of work.
+// Pure decision — no side effects, no execution.
+type Selector interface {
+	Select(ctx context.Context, agents []*agent.Solo) []*agent.Solo
+}
+
+// Executor coordinates selected agents to produce a response.
+type Executor interface {
+	Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error)
 }
 
 // DebateRound records one debate round between agents.
