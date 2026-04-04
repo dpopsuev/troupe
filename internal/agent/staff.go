@@ -20,11 +20,6 @@ type Staff struct {
 	bus       signal.Bus
 }
 
-// NewStaffWith creates a Staff from pre-built subsystems.
-func NewStaffWith(w *world.World, p *warden.AgentWarden, t *transport.LocalTransport, b signal.Bus) *Staff {
-	return &Staff{world: w, pool: p, transport: t, bus: b}
-}
-
 // NewStaff creates a fully-wired Staff with the given AgentSupervisor.
 func NewStaff(launcher warden.AgentSupervisor) *Staff {
 	w := world.NewWorld()
