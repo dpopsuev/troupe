@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/dpopsuev/troupe/identity"
 	"github.com/dpopsuev/troupe/internal/acp"
@@ -14,21 +15,62 @@ import (
 	"github.com/dpopsuev/troupe/world"
 )
 
-// driverAdapter wraps a public Driver as a warden.AgentSupervisor.
-type driverAdapter struct {
-	driver Driver
+// multiDriverAdapter wraps public Drivers as a warden.AgentSupervisor.
+// Resolves the correct driver at Start() time based on a per-entity provider map.
+type multiDriverAdapter struct {
+	defaultDriver Driver
+	drivers       map[string]Driver
+	providers     map[world.EntityID]string // entity → provider, set before Fork
+	mu            sync.Mutex
 }
 
-func (a *driverAdapter) Start(ctx context.Context, id world.EntityID, config warden.AgentConfig) error {
-	return a.driver.Start(ctx, id, ActorConfig{Model: config.Model, Role: config.Role})
+func (a *multiDriverAdapter) setProvider(id world.EntityID, provider string) {
+	a.mu.Lock()
+	a.providers[id] = provider
+	a.mu.Unlock()
 }
 
-func (a *driverAdapter) Stop(ctx context.Context, id world.EntityID) error {
-	return a.driver.Stop(ctx, id)
+func (a *multiDriverAdapter) resolve(id world.EntityID) Driver {
+	a.mu.Lock()
+	provider := a.providers[id]
+	a.mu.Unlock()
+	if provider != "" && a.drivers != nil {
+		if d, ok := a.drivers[provider]; ok {
+			return d
+		}
+	}
+	return a.defaultDriver
 }
 
-func (a *driverAdapter) Healthy(_ context.Context, _ world.EntityID) bool {
-	return true // default: driver-managed agents are healthy
+func (a *multiDriverAdapter) Start(ctx context.Context, id world.EntityID, config warden.AgentConfig) error {
+	// Resolve driver by provider from config, falling back to default.
+	drv := a.defaultDriver
+	if config.Provider != "" && a.drivers != nil {
+		if d, ok := a.drivers[config.Provider]; ok {
+			drv = d
+		}
+	}
+	if drv == nil {
+		return fmt.Errorf("no driver for entity %d", id)
+	}
+	// Track which driver was used for this entity (for Stop).
+	a.setProvider(id, config.Provider)
+	return drv.Start(ctx, id, ActorConfig{Model: config.Model, Role: config.Role, Provider: config.Provider})
+}
+
+func (a *multiDriverAdapter) Stop(ctx context.Context, id world.EntityID) error {
+	drv := a.resolve(id)
+	if drv == nil && a.defaultDriver != nil {
+		drv = a.defaultDriver
+	}
+	if drv == nil {
+		return nil
+	}
+	return drv.Stop(ctx, id)
+}
+
+func (a *multiDriverAdapter) Healthy(_ context.Context, _ world.EntityID) bool {
+	return true
 }
 
 // DefaultBroker is the standard Broker implementation. Wires World, Warden,
@@ -39,9 +81,10 @@ type DefaultBroker struct {
 	transport *transport.LocalTransport
 	bus       signal.Bus
 	registry  *identity.Registry
-	hooks     []Hook
-	driver    Driver // original driver (for optional interface checks)
-	meter     Meter
+	hooks   []Hook
+	driver  Driver // default driver (for optional interface checks)
+	adapter *multiDriverAdapter
+	meter   Meter
 }
 
 // BrokerOption configures a DefaultBroker.
@@ -49,6 +92,7 @@ type BrokerOption func(*brokerConfig)
 
 type brokerConfig struct {
 	driver       Driver
+	drivers      map[string]Driver // provider → driver
 	hooks        []Hook
 	pickStrategy PickStrategy
 	meter        Meter
@@ -65,6 +109,17 @@ func WithHook(h Hook) BrokerOption {
 		if h != nil {
 			c.hooks = append(c.hooks, h)
 		}
+	}
+}
+
+// WithDriverFor registers a driver for a specific provider.
+// Broker.Spawn routes to the matching driver based on ActorConfig.Provider.
+func WithDriverFor(provider string, d Driver) BrokerOption {
+	return func(c *brokerConfig) {
+		if c.drivers == nil {
+			c.drivers = make(map[string]Driver)
+		}
+		c.drivers[provider] = d
 	}
 }
 
@@ -90,10 +145,15 @@ func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
 		o(cfg)
 	}
 
-	// Resolve the warden supervisor: use custom Driver adapter or default ACP.
+	// Resolve the warden supervisor: multi-driver adapter or default ACP.
+	adapter := &multiDriverAdapter{
+		defaultDriver: cfg.driver,
+		drivers:       cfg.drivers,
+		providers:     make(map[world.EntityID]string),
+	}
 	var supervisor warden.AgentSupervisor
-	if cfg.driver != nil {
-		supervisor = &driverAdapter{driver: cfg.driver}
+	if cfg.driver != nil || len(cfg.drivers) > 0 {
+		supervisor = adapter
 	} else {
 		supervisor = acp.NewACPLauncher()
 	}
@@ -109,9 +169,10 @@ func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
 		transport: t,
 		bus:       b,
 		registry:  identity.NewRegistry(),
-		hooks:     cfg.hooks,
-		driver:    cfg.driver,
-		meter:     cfg.meter,
+		hooks:   cfg.hooks,
+		driver:  cfg.driver,
+		adapter: adapter,
+		meter:   cfg.meter,
 	}
 }
 
@@ -135,8 +196,14 @@ func (b *DefaultBroker) Pick(_ context.Context, prefs Preferences) ([]ActorConfi
 // Spawn creates a running actor.
 func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
 	// Driver environment validation (optional interface).
-	if b.driver != nil {
-		if v, ok := b.driver.(DriverValidator); ok {
+	drv := b.adapter.resolve(0) // check default driver
+	if config.Provider != "" && b.adapter.drivers != nil {
+		if d, ok := b.adapter.drivers[config.Provider]; ok {
+			drv = d
+		}
+	}
+	if drv != nil {
+		if v, ok := drv.(DriverValidator); ok {
 			if err := v.ValidateEnvironment(ctx); err != nil {
 				return nil, fmt.Errorf("driver validate: %w", err)
 			}
@@ -158,7 +225,8 @@ func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, e
 	}
 
 	id, err := b.warden.Fork(ctx, role, warden.AgentConfig{
-		Model: config.Model,
+		Model:    config.Model,
+		Provider: config.Provider,
 	}, 0)
 
 	var actor Actor

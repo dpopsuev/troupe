@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/world"
 )
 
 func TestNewBroker_EmptyEndpoint_ReturnsLocal(t *testing.T) {
@@ -48,5 +49,55 @@ func TestDefaultBroker_Spawn_NoLauncher(t *testing.T) {
 	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Model: "sonnet"})
 	if err == nil {
 		t.Fatal("expected error for spawn without launcher")
+	}
+}
+
+// --- Multi-driver tests (TSK-10) ---
+
+type providerDriver struct {
+	started map[world.EntityID]bool
+}
+
+func newProviderDriver() *providerDriver {
+	return &providerDriver{started: make(map[world.EntityID]bool)}
+}
+
+func (d *providerDriver) Start(_ context.Context, id world.EntityID, _ troupe.ActorConfig) error {
+	d.started[id] = true
+	return nil
+}
+
+func (d *providerDriver) Stop(_ context.Context, _ world.EntityID) error { return nil }
+
+func TestBroker_MultiDriver_RoutesToProvider(t *testing.T) {
+	anthropic := newProviderDriver()
+	openai := newProviderDriver()
+	broker := troupe.NewBroker("",
+		troupe.WithDriverFor("anthropic", anthropic),
+		troupe.WithDriverFor("openai", openai),
+	)
+
+	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Provider: "anthropic", Role: "test"})
+	if err != nil {
+		t.Fatalf("Spawn anthropic: %v", err)
+	}
+	if len(anthropic.started) == 0 {
+		t.Error("anthropic driver not called")
+	}
+	if len(openai.started) != 0 {
+		t.Error("openai driver should not be called")
+	}
+}
+
+func TestBroker_MultiDriver_FallbackToDefault(t *testing.T) {
+	defaultD := newProviderDriver()
+	broker := troupe.NewBroker("", troupe.WithDriver(defaultD))
+
+	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Provider: "unknown", Role: "test"})
+	if err != nil {
+		t.Fatalf("Spawn with fallback: %v", err)
+	}
+	if len(defaultD.started) == 0 {
+		t.Error("default driver not used as fallback")
 	}
 }

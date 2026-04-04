@@ -24,6 +24,7 @@ type AgentConfig struct {
 	Role          string            // staff role name (e.g., "executor", "inspector")
 	Prompt        string            // system prompt
 	Model         string            // LLM model name
+	Provider      string            // provider name for multi-driver routing
 	Tools         []string          // allowed tool names
 	WorkDir       string            // working directory
 	Env           map[string]string // environment variables
