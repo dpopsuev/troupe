@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/internal/warden"
-	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -21,13 +20,6 @@ type mockLauncher struct {
 	mu      sync.Mutex
 	started map[world.EntityID]bool
 	stopped map[world.EntityID]bool
-}
-
-func newMockLauncher() *mockLauncher {
-	return &mockLauncher{
-		started: make(map[world.EntityID]bool),
-		stopped: make(map[world.EntityID]bool),
-	}
 }
 
 func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ warden.AgentConfig) error {
@@ -49,159 +41,6 @@ func (m *mockLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 	defer m.mu.Unlock()
 	return m.started[id] && !m.stopped[id]
 }
-
-// setup creates a Staff with a mock launcher.
-func setup() *Staff {
-	ml := newMockLauncher()
-	return NewStaff(ml)
-}
-
-// ---------------------------------------------------------------------------
-// Staff tests
-// ---------------------------------------------------------------------------
-
-func TestStaff_SpawnReturnsHandle(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	h, err := s.Spawn(ctx, "executor", warden.AgentConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if h.ID() == 0 {
-		t.Fatal("handle ID should not be 0")
-	}
-	if h.Role() != "executor" {
-		t.Fatalf("role = %q, want executor", h.Role())
-	}
-}
-
-func TestStaff_SpawnUnder_CreatesChild(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	parent, err := s.Spawn(ctx, "manager", warden.AgentConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	child, err := s.SpawnUnder(ctx, parent, "executor", warden.AgentConfig{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	p := child.Parent()
-	if p == nil {
-		t.Fatal("child.Parent() should not be nil")
-	}
-	if p.ID() != parent.ID() {
-		t.Fatalf("child parent = %d, want %d", p.ID(), parent.ID())
-	}
-}
-
-func TestStaff_Active(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	for range 3 {
-		if _, err := s.Spawn(ctx, "worker", warden.AgentConfig{}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	active := s.Active()
-	if len(active) != 3 {
-		t.Fatalf("active = %d, want 3", len(active))
-	}
-}
-
-func TestStaff_FindByRole(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	s.Spawn(ctx, "executor", warden.AgentConfig{})
-	s.Spawn(ctx, "executor", warden.AgentConfig{})
-	s.Spawn(ctx, "inspector", warden.AgentConfig{})
-
-	executors := s.FindByRole("executor")
-	if len(executors) != 2 {
-		t.Fatalf("FindByRole(executor) = %d, want 2", len(executors))
-	}
-
-	inspectors := s.FindByRole("inspector")
-	if len(inspectors) != 1 {
-		t.Fatalf("FindByRole(inspector) = %d, want 1", len(inspectors))
-	}
-}
-
-func TestStaff_KillAll(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	for range 3 {
-		s.Spawn(ctx, "worker", warden.AgentConfig{})
-	}
-	if s.Count() != 3 {
-		t.Fatalf("count = %d, want 3", s.Count())
-	}
-
-	s.KillAll(ctx)
-	if s.Count() != 0 {
-		t.Fatalf("count = %d after KillAll, want 0", s.Count())
-	}
-}
-
-func TestStaff_Tree(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	root, _ := s.Spawn(ctx, "manager", warden.AgentConfig{})
-	mid, _ := s.SpawnUnder(ctx, root, "executor", warden.AgentConfig{})
-	s.SpawnUnder(ctx, mid, "inspector", warden.AgentConfig{})
-
-	tree := s.Tree(root)
-	if tree == nil {
-		t.Fatal("tree should not be nil")
-	}
-	if tree.Role != "manager" {
-		t.Fatalf("root role = %q", tree.Role)
-	}
-	if len(tree.Children) != 1 {
-		t.Fatalf("root children = %d, want 1", len(tree.Children))
-	}
-	if tree.Children[0].Role != "executor" {
-		t.Fatalf("mid role = %q", tree.Children[0].Role)
-	}
-	if len(tree.Children[0].Children) != 1 {
-		t.Fatalf("mid children = %d, want 1", len(tree.Children[0].Children))
-	}
-	if tree.Children[0].Children[0].Role != "inspector" {
-		t.Fatalf("leaf role = %q", tree.Children[0].Children[0].Role)
-	}
-}
-
-func TestStaff_Count(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	if s.Count() != 0 {
-		t.Fatalf("initial count = %d", s.Count())
-	}
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	if s.Count() != 1 {
-		t.Fatalf("count = %d after spawn", s.Count())
-	}
-
-	h.Kill(ctx)
-	if s.Count() != 0 {
-		t.Fatalf("count = %d after kill", s.Count())
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Handle tests
-// ---------------------------------------------------------------------------
 
 func TestHandle_String(t *testing.T) {
 	s := setup()
@@ -572,46 +411,5 @@ func TestFacade_ConcurrentSpawnAskKill(t *testing.T) {
 
 	if s.Count() != 0 {
 		t.Fatalf("count = %d after concurrent test", s.Count())
-	}
-}
-
-func TestStaff_OnSignal(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	var signals []signal.Signal
-	var mu sync.Mutex
-	s.OnSignal(func(sig signal.Signal) {
-		mu.Lock()
-		signals = append(signals, sig)
-		mu.Unlock()
-	})
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	h.Kill(ctx)
-
-	mu.Lock()
-	count := len(signals)
-	mu.Unlock()
-
-	if count < 2 {
-		t.Fatalf("expected at least 2 signals (started+stopped), got %d", count)
-	}
-}
-
-func TestStaff_EscapeHatches(t *testing.T) {
-	s := setup()
-
-	if s.World() == nil {
-		t.Fatal("World() should not be nil")
-	}
-	if s.Pool() == nil {
-		t.Fatal("Pool() should not be nil")
-	}
-	if s.Transport() == nil {
-		t.Fatal("Transport() should not be nil")
-	}
-	if s.Bus() == nil {
-		t.Fatal("Bus() should not be nil")
 	}
 }

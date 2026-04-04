@@ -2,7 +2,6 @@ package jericho
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -15,12 +14,13 @@ import (
 	"github.com/dpopsuev/jericho/world"
 )
 
-// ErrNoLauncher is returned when Spawn is called without a configured launcher.
-var ErrNoLauncher = errors.New("broker: no launcher configured")
+// Driver provisions and communicates with agents. The Broker delegates
+// agent lifecycle to a Driver. ACP (subprocess + JSON-RPC) is the default.
+// HTTP (REST/SSE) is planned (JRC-TSK-97).
+type Driver = warden.AgentSupervisor
 
 // DefaultBroker is the standard Broker implementation. Wires World, Warden,
-// Transport, ACP, Registry, and Signal Bus internally. Staff is absorbed —
-// DefaultBroker IS the agent subsystem orchestrator.
+// Transport, Driver, Registry, and Signal Bus internally.
 type DefaultBroker struct {
 	world     *world.World
 	warden    *warden.AgentWarden
@@ -29,22 +29,43 @@ type DefaultBroker struct {
 	registry  *identity.Registry
 }
 
+// BrokerOption configures a DefaultBroker.
+type BrokerOption func(*brokerConfig)
+
+type brokerConfig struct {
+	driver Driver
+}
+
+// WithDriver sets the agent driver. Default: ACP (subprocess + JSON-RPC).
+func WithDriver(d Driver) BrokerOption {
+	return func(c *brokerConfig) { c.driver = d }
+}
+
 // NewBroker creates a Broker. If the endpoint is a remote URL (https://),
 // returns a RemoteBroker that proxies over HTTP. Otherwise, returns a
-// local DefaultBroker with ACP baked in.
-func NewBroker(endpoint string) Broker {
+// local DefaultBroker. Default driver: ACP.
+func NewBroker(endpoint string, opts ...BrokerOption) Broker {
 	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		return newRemoteBroker(endpoint)
 	}
-	return newLocalBroker()
+	return newLocalBroker(opts...)
 }
 
-// newLocalBroker creates an in-process DefaultBroker with ACP.
-func newLocalBroker() *DefaultBroker {
+// newLocalBroker creates an in-process DefaultBroker.
+func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
+	cfg := &brokerConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+
+	if cfg.driver == nil {
+		cfg.driver = acp.NewACPLauncher()
+	}
+
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
 	b := signal.NewMemBus()
-	p := warden.NewWarden(w, t, b, acp.NewACPLauncher())
+	p := warden.NewWarden(w, t, b, cfg.driver)
 
 	return &DefaultBroker{
 		world:     w,
@@ -72,8 +93,7 @@ func (b *DefaultBroker) Pick(_ context.Context, prefs Preferences) ([]ActorConfi
 	return configs, nil
 }
 
-// Spawn creates a running actor. Internally: Warden forks process, World
-// creates entity, Transport registers handler.
+// Spawn creates a running actor.
 func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
 	role := config.Role
 	if role == "" {

@@ -196,7 +196,7 @@ func (c *Collective) Children() []jericho.Actor {
 	return c.agents
 }
 
-// Parent returns nil — collectives are created by Staff, not by a parent agent.
+// Parent returns nil — collectives are collectives have no parent.
 func (c *Collective) Parent() jericho.Actor {
 	return nil
 }

@@ -4,9 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-
-	"github.com/dpopsuev/jericho/internal/agent"
-	"github.com/dpopsuev/jericho/internal/warden"
 )
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -14,10 +11,10 @@ import (
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestAgentGatekeeper_GibberishDefaultsToPass(t *testing.T) {
-	staff := agent.NewStaff(newMockLauncher())
+	parts := newTestParts()
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
+	agent, _ := parts.spawn(ctx, "gate")
 	agent.Listen(func(_ string) string { return "I don't understand the question" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -35,10 +32,10 @@ func TestAgentGatekeeper_GibberishDefaultsToPass(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestAgentGatekeeper_PassResponse(t *testing.T) {
-	staff := agent.NewStaff(newMockLauncher())
+	parts := newTestParts()
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
+	agent, _ := parts.spawn(ctx, "gate")
 	agent.Listen(func(_ string) string { return "PASS: looks good" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -55,10 +52,10 @@ func TestAgentGatekeeper_PassResponse(t *testing.T) {
 }
 
 func TestAgentGatekeeper_RejectResponse(t *testing.T) {
-	staff := agent.NewStaff(newMockLauncher())
+	parts := newTestParts()
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
+	agent, _ := parts.spawn(ctx, "gate")
 	agent.Listen(func(_ string) string { return "REJECT: destructive request" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -79,7 +76,7 @@ func TestAgentGatekeeper_RejectResponse(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestAgentGatekeeper_CaseInsensitive(t *testing.T) {
-	staff := agent.NewStaff(newMockLauncher())
+	parts := newTestParts()
 	ctx := context.Background()
 
 	cases := []struct {
@@ -95,7 +92,7 @@ func TestAgentGatekeeper_CaseInsensitive(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
+		agent, _ := parts.spawn(ctx, "gate")
 		resp := tc.response
 		agent.Listen(func(_ string) string { return resp })
 
@@ -111,10 +108,10 @@ func TestAgentGatekeeper_CaseInsensitive(t *testing.T) {
 }
 
 func TestAgentGatekeeper_EmptyResponse(t *testing.T) {
-	staff := agent.NewStaff(newMockLauncher())
+	parts := newTestParts()
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
+	agent, _ := parts.spawn(ctx, "gate")
 	agent.Listen(func(_ string) string { return "" })
 
 	gate := &AgentGatekeeper{Agent: agent}

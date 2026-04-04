@@ -1,6 +1,6 @@
 // Package agent provides a human-readable API over Bugle's internal
 // subsystems (pool, transport, world, signal). Solo wraps a
-// single agent; Staff is the top-level entry point.
+// single agent handle — internal Actor implementation.
 package agent
 
 import (
