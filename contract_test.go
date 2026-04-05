@@ -74,7 +74,7 @@ func TestContract_MockActor_SatisfiesActor(t *testing.T) {
 		t.Error("empty response")
 	}
 
-	actor.Kill(ctx) //nolint:errcheck
+	actor.Kill(ctx) //nolint:errcheck // best-effort cleanup
 	if actor.Ready() {
 		t.Error("actor ready after kill")
 	}
@@ -92,13 +92,13 @@ func TestContract_LinearDirector_SatisfiesDirector(t *testing.T) {
 		t.Fatalf("Direct: %v", err)
 	}
 
-	var kinds []troupe.EventKind
+	kinds := make([]troupe.EventKind, 0, 5) //nolint:mnd // started+completed+done
 	for ev := range events {
 		kinds = append(kinds, ev.Kind)
 	}
 
 	// Must emit at least Started, Completed, Done.
-	if len(kinds) < 3 { //nolint:mnd
+	if len(kinds) < 3 { //nolint:mnd // started+completed per step + done
 		t.Errorf("got %d events, want >= 3", len(kinds))
 	}
 	if kinds[len(kinds)-1] != troupe.Done {

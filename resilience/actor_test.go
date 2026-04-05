@@ -23,7 +23,7 @@ func (a *failNActor) Perform(_ context.Context, _ string) (string, error) {
 	return "success", nil
 }
 
-func (a *failNActor) Ready() bool                 { return true }
+func (a *failNActor) Ready() bool                  { return true }
 func (a *failNActor) Kill(_ context.Context) error { return nil }
 
 type alwaysFailActor struct{}
@@ -32,7 +32,7 @@ func (alwaysFailActor) Perform(_ context.Context, _ string) (string, error) {
 	return "", errors.New("permanent failure")
 }
 
-func (alwaysFailActor) Ready() bool                 { return true }
+func (alwaysFailActor) Ready() bool                  { return true }
 func (alwaysFailActor) Kill(_ context.Context) error { return nil }
 
 // --- RetryActor ---
@@ -67,7 +67,7 @@ func TestRetryActor_DelegatesToInner(t *testing.T) {
 	if !ra.Ready() {
 		t.Error("retry actor not ready")
 	}
-	ra.Kill(context.Background()) //nolint:errcheck
+	ra.Kill(context.Background()) //nolint:errcheck // best-effort cleanup
 	if ra.Ready() {
 		t.Error("retry actor ready after kill")
 	}
@@ -109,7 +109,7 @@ func TestFallbackActor_Exhausted(t *testing.T) {
 
 func TestFallbackActor_Ready(t *testing.T) {
 	killed := &testkit.MockActor{Name: "dead"}
-	killed.Kill(context.Background()) //nolint:errcheck
+	killed.Kill(context.Background()) //nolint:errcheck // best-effort cleanup
 	backup := &testkit.MockActor{Name: "alive"}
 	fa := resilience.NewFallbackActor(killed, []resilience.ActorIface{backup})
 	if !fa.Ready() {

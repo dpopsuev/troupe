@@ -25,7 +25,7 @@ func (a *hookedActor) Perform(ctx context.Context, prompt string) (string, error
 	return resp, err
 }
 
-func (a *hookedActor) Ready() bool             { return a.inner.Ready() }
+func (a *hookedActor) Ready() bool                    { return a.inner.Ready() }
 func (a *hookedActor) Kill(ctx context.Context) error { return a.inner.Kill(ctx) }
 
 var _ Actor = (*hookedActor)(nil)

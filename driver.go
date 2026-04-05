@@ -2,9 +2,13 @@ package troupe
 
 import (
 	"context"
+	"errors"
 
 	"github.com/dpopsuev/troupe/world"
 )
+
+// ErrNoDriver is returned when no driver is configured for a provider.
+var ErrNoDriver = errors.New("no driver configured")
 
 // Driver provisions and communicates with agents. The Broker delegates
 // agent lifecycle to a Driver. Each Driver implementation handles a

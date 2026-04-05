@@ -16,8 +16,8 @@ import (
 
 	"github.com/dpopsuev/troupe/billing"
 	"github.com/dpopsuev/troupe/internal/acp"
-	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/internal/transport"
+	"github.com/dpopsuev/troupe/resilience"
 )
 
 // TestResilienceE2E_RetryRecoversFromTransientFailure proves retry

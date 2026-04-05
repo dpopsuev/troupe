@@ -51,7 +51,7 @@ func (a *multiDriverAdapter) Start(ctx context.Context, id world.EntityID, confi
 		}
 	}
 	if drv == nil {
-		return fmt.Errorf("no driver for entity %d", id)
+		return fmt.Errorf("no driver for entity %d: %w", id, ErrNoDriver)
 	}
 	// Track which driver was used for this entity (for Stop).
 	a.setProvider(id, config.Provider)
@@ -81,10 +81,10 @@ type DefaultBroker struct {
 	transport *transport.LocalTransport
 	bus       signal.Bus
 	registry  *identity.Registry
-	hooks   []Hook
-	driver  Driver // default driver (for optional interface checks)
-	adapter *multiDriverAdapter
-	meter   Meter
+	hooks     []Hook
+	driver    Driver // default driver (for optional interface checks)
+	adapter   *multiDriverAdapter
+	meter     Meter
 }
 
 // BrokerOption configures a DefaultBroker.
@@ -169,10 +169,10 @@ func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
 		transport: t,
 		bus:       b,
 		registry:  identity.NewRegistry(),
-		hooks:   cfg.hooks,
-		driver:  cfg.driver,
-		adapter: adapter,
-		meter:   cfg.meter,
+		hooks:     cfg.hooks,
+		driver:    cfg.driver,
+		adapter:   adapter,
+		meter:     cfg.meter,
 	}
 }
 

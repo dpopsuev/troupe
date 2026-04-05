@@ -12,9 +12,9 @@ import (
 // --- test helpers ---
 
 type testSpawnHook struct {
-	preErr    error
-	spawns    int
-	mu        sync.Mutex
+	preErr error
+	spawns int
+	mu     sync.Mutex
 }
 
 func (h *testSpawnHook) Name() string { return "test-spawn" }
