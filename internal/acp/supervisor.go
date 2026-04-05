@@ -27,14 +27,12 @@ func NewACPLauncher() *ACPLauncher {
 }
 
 // Start spawns an ACP agent process for the given entity.
+// Uses defense-in-depth resolution: explicit → env var → PATH detect → fallback.
 func (l *ACPLauncher) Start(ctx context.Context, id world.EntityID, config warden.AgentConfig) error {
-	agentName := "cursor" // default
-	if config.Model != "" {
-		agentName = config.Model
-	}
+	resolved := ResolveAgent(config.Model, config.Provider, config.Model)
 
-	client, err := NewClient(agentName,
-		WithModel(config.Model),
+	client, err := NewClient(resolved.CLI,
+		WithModel(resolved.Model),
 	)
 	if err != nil {
 		return fmt.Errorf("create ACP client for entity %d: %w", id, err)

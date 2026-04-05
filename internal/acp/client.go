@@ -122,10 +122,17 @@ func WithSessionTimeout(d time.Duration) Option   { return func(c *Client) { c.s
 func WithPromptTimeout(d time.Duration) Option    { return func(c *Client) { c.promptTimeout = d } }
 
 // NewClient creates an ACP client for the named agent.
+// If the agent is not in the AgentCommands registry, it falls back to
+// convention: <name> --acp (Layer 4 of defense-in-depth resolution).
 func NewClient(agentName string, opts ...Option) (*Client, error) {
+	if s := sanitizeCLI(agentName); s == "" {
+		return nil, fmt.Errorf("%w: %q", ErrUnknownAgent, agentName)
+	}
+
 	args, ok := AgentCommands[agentName]
 	if !ok {
-		return nil, fmt.Errorf("%w: %q", ErrUnknownAgent, agentName)
+		// Convention fallback: <name> --acp
+		args = []string{agentName, "--acp"}
 	}
 
 	c := &Client{

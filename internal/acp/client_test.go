@@ -52,10 +52,22 @@ func TestNewClient_ValidAgent(t *testing.T) {
 	}
 }
 
-func TestNewClient_InvalidAgent(t *testing.T) {
-	_, err := NewClient("unknown")
+func TestNewClient_UnknownAgent_ConventionFallback(t *testing.T) {
+	// Unknown but safe agent names get convention fallback (<name> --acp).
+	c, err := NewClient("unknown")
+	if err != nil {
+		t.Fatalf("expected convention fallback, got error: %v", err)
+	}
+	if c.agentCmd != "unknown" {
+		t.Errorf("cmd = %q, want unknown", c.agentCmd)
+	}
+}
+
+func TestNewClient_UnsafeAgent_Rejected(t *testing.T) {
+	// Unsafe names (shell injection) must be rejected.
+	_, err := NewClient("; rm -rf /")
 	if err == nil {
-		t.Fatal("expected error for unknown agent")
+		t.Fatal("expected error for unsafe agent name")
 	}
 }
 
