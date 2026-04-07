@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -28,10 +29,11 @@ const (
 // anthropic-sdk-go integration (see TRP-TSK-35).
 func NewProviderFromEnv() (anyllm.Provider, error) {
 	if os.Getenv(envUseVertex) == "1" {
-		// Vertex is available but any-llm-go's Anthropic provider
-		// doesn't support it yet. Fall through to other providers.
-		// TODO: Wire vertex.WithGoogleAuth once any-llm-go supports
-		// custom client options, or implement a direct vertex provider.
+		region := os.Getenv(envVertexRegion)
+		project := os.Getenv(envVertexProject)
+		if region != "" && project != "" {
+			return NewVertexProvider(context.Background(), region, project)
+		}
 	}
 
 	if os.Getenv(envAnthropicKey) != "" {
@@ -53,6 +55,13 @@ func NewProviderFromEnv() (anyllm.Provider, error) {
 func NewProviderByName(name string) (anyllm.Provider, error) {
 	switch name {
 	case "anthropic", "claude":
+		if os.Getenv(envUseVertex) == "1" {
+			region := os.Getenv(envVertexRegion)
+			project := os.Getenv(envVertexProject)
+			if region != "" && project != "" {
+				return NewVertexProvider(context.Background(), region, project)
+			}
+		}
 		return anyllmAnthropic.New()
 	case "openai", "gpt":
 		return anyllmOpenAI.New()
