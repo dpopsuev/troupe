@@ -3,6 +3,8 @@ package signal
 import (
 	"sync"
 	"time"
+
+	"github.com/dpopsuev/battery/event"
 )
 
 // WorkerStatus describes the operational state of a worker.
@@ -37,14 +39,14 @@ type HealthSummary struct {
 	BudgetUsedPct float64       `json:"budget_used_pct,omitempty"`
 }
 
-// Supervisor watches a Bus and maintains per-worker health state.
+// Supervisor watches an EventLog and maintains per-worker health state.
 // The supervisor agent queries this for health summaries to make replacement
 // and shutdown decisions.
 type Supervisor struct {
 	mu               sync.Mutex
 	workers          map[string]*WorkerState
 	lastProcessed    int
-	bus              Bus
+	log              event.EventLog
 	silenceThreshold time.Duration
 	errorThreshold   int
 	shouldStop       bool
@@ -72,11 +74,11 @@ func WithBudgetTotal(total float64) SupervisorOption {
 	return func(s *Supervisor) { s.budgetTotal = total }
 }
 
-// NewSupervisor creates a health tracker that watches the given Bus.
-func NewSupervisor(bus Bus, opts ...SupervisorOption) *Supervisor {
+// NewSupervisor creates a health tracker that watches the given EventLog.
+func NewSupervisor(log event.EventLog, opts ...SupervisorOption) *Supervisor {
 	s := &Supervisor{
 		workers:          make(map[string]*WorkerState),
-		bus:              bus,
+		log:              log,
 		silenceThreshold: 2 * time.Minute,
 		errorThreshold:   3,
 	}
@@ -86,44 +88,44 @@ func NewSupervisor(bus Bus, opts ...SupervisorOption) *Supervisor {
 	return s
 }
 
-// Process reads new signals from the bus and updates worker state.
+// Process reads new events from the log and updates worker state.
 // Safe for concurrent callers -- lastProcessed is read and written
 // under the same lock to prevent double-counting and index overshoot.
 func (s *Supervisor) Process() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	signals := s.bus.Since(s.lastProcessed)
-	if len(signals) == 0 {
+	events := s.log.Since(s.lastProcessed)
+	if len(events) == 0 {
 		return
 	}
 
-	for _, sig := range signals {
+	for _, evt := range events {
 		s.lastProcessed++
-		wid := sig.Meta[MetaKeyWorkerID]
-		if wid == "" && sig.Event != EventShouldStop && sig.Event != EventBudgetUpdate {
+		wid := evt.Meta[MetaKeyWorkerID]
+		if wid == "" && evt.Kind != EventShouldStop && evt.Kind != EventBudgetUpdate {
 			continue
 		}
 
-		switch sig.Event {
+		switch evt.Kind {
 		case EventWorkerStarted:
 			s.workers[wid] = &WorkerState{
 				WorkerID: wid,
 				Status:   WorkerStatusActive,
-				LastSeen: s.parseTime(sig.Timestamp),
+				LastSeen: evt.Timestamp,
 			}
 
 		case EventWorkerStopped:
 			if w, ok := s.workers[wid]; ok {
 				w.Status = WorkerStatusStopped
-				w.LastSeen = s.parseTime(sig.Timestamp)
+				w.LastSeen = evt.Timestamp
 			}
 
 		case EventWorkerStart, EventWorkerDone:
 			if w, ok := s.workers[wid]; ok {
-				w.LastSeen = s.parseTime(sig.Timestamp)
+				w.LastSeen = evt.Timestamp
 				w.Status = WorkerStatusActive
-				if sig.Event == EventWorkerDone {
+				if evt.Kind == EventWorkerDone {
 					w.StepsComplete++
 				}
 			}
@@ -131,8 +133,8 @@ func (s *Supervisor) Process() {
 		case EventWorkerError:
 			if w, ok := s.workers[wid]; ok {
 				w.ErrorCount++
-				w.LastError = sig.Meta[MetaKeyError]
-				w.LastSeen = s.parseTime(sig.Timestamp)
+				w.LastError = evt.Meta[MetaKeyError]
+				w.LastSeen = evt.Timestamp
 				if w.ErrorCount >= s.errorThreshold {
 					w.Status = WorkerStatusErrored
 				}
@@ -142,7 +144,7 @@ func (s *Supervisor) Process() {
 			s.shouldStop = true
 
 		case EventBudgetUpdate:
-			if v, ok := sig.Meta[MetaKeyUsed]; ok {
+			if v, ok := evt.Meta[MetaKeyUsed]; ok {
 				n, _ := parseFloat(v)
 				s.budgetUsed = n
 			}
@@ -185,12 +187,12 @@ func (s *Supervisor) Health() HealthSummary {
 	return summary
 }
 
-// EmitShouldStop emits a should_stop signal on the bus, instructing workers
+// EmitShouldStop emits a should_stop event on the log, instructing workers
 // to finish their current step and exit.
 func (s *Supervisor) EmitShouldStop() {
-	s.bus.Emit(&Signal{
-		Event: EventShouldStop,
-		Agent: AgentSupervisor,
+	s.log.Emit(event.Event{
+		Source: AgentSupervisor,
+		Kind:   EventShouldStop,
 	})
 }
 
@@ -201,13 +203,6 @@ func (s *Supervisor) ShouldStop() bool {
 	return s.shouldStop
 }
 
-func (s *Supervisor) parseTime(ts string) time.Time {
-	t, err := time.Parse(time.RFC3339, ts)
-	if err != nil {
-		return time.Now()
-	}
-	return t
-}
 
 func parseFloat(s string) (float64, bool) {
 	var result float64

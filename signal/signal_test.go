@@ -411,7 +411,7 @@ func emitWorkerError(bus signal.Bus, workerID, caseID, step, errMsg string) {
 
 func TestSupervisor_WorkerLifecycle(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus)
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w2")
@@ -440,7 +440,7 @@ func TestSupervisor_WorkerLifecycle(t *testing.T) {
 
 func TestSupervisor_ErrorThreshold_FlagsReplacement(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus, signal.WithErrorThreshold(2))
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithErrorThreshold(2))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	emitWorkerError(bus, "w1", "C1", "F0", "first error")
@@ -467,7 +467,7 @@ func TestSupervisor_ErrorThreshold_FlagsReplacement(t *testing.T) {
 
 func TestSupervisor_SilenceThreshold_FlagsReplacement(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus, signal.WithSilenceThreshold(50*time.Millisecond))
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithSilenceThreshold(50*time.Millisecond))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	sup.Process()
@@ -482,7 +482,7 @@ func TestSupervisor_SilenceThreshold_FlagsReplacement(t *testing.T) {
 
 func TestSupervisor_StepCounting(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus)
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	for i := 0; i < 3; i++ {
@@ -505,7 +505,7 @@ func TestSupervisor_StepCounting(t *testing.T) {
 
 func TestSupervisor_ShouldStop(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus)
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
 
 	if sup.ShouldStop() {
 		t.Error("should_stop should be false initially")
@@ -521,7 +521,7 @@ func TestSupervisor_ShouldStop(t *testing.T) {
 
 func TestSupervisor_BudgetTracking(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus, signal.WithBudgetTotal(1000))
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithBudgetTotal(1000))
 
 	bus.Emit(&signal.Signal{
 		Event: signal.EventBudgetUpdate,
@@ -538,7 +538,7 @@ func TestSupervisor_BudgetTracking(t *testing.T) {
 
 func TestSupervisor_IncrementalProcessing(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus)
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	sup.Process()
@@ -559,7 +559,7 @@ func TestSupervisor_IncrementalProcessing(t *testing.T) {
 
 func TestSupervisor_ConcurrentProcess_Race(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus)
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	const doneSignals = 5
@@ -609,7 +609,7 @@ func TestSupervisor_ConcurrentProcess_Race(t *testing.T) {
 
 func TestSupervisor_MultipleWorkersIndependent(t *testing.T) {
 	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(bus, signal.WithErrorThreshold(2))
+	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithErrorThreshold(2))
 
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
 	emitWorkerSignal(bus, signal.EventWorkerStarted, "w2")
