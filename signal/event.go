@@ -14,6 +14,7 @@ import "time"
 type Event struct {
 	ID        string    `json:"id"`
 	ParentID  string    `json:"parent_id,omitempty"`
+	TraceID   string    `json:"trace_id,omitempty"`
 	Timestamp time.Time `json:"ts"`
 	Source    string    `json:"source"`
 	Kind     string    `json:"kind"`

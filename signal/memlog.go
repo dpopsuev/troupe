@@ -62,6 +62,20 @@ func (l *MemLog) OnEmit(fn func(Event)) {
 	l.hooks = append(l.hooks, fn)
 }
 
+// ByTraceID returns all events with the given trace ID, in emission order.
+func (l *MemLog) ByTraceID(traceID string) []Event {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	var result []Event
+	for _, e := range l.events {
+		if e.TraceID == traceID {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 // Bus returns a backward-compatible Bus adapter over this EventLog.
 // Emits Signal as Data payload on Event. Reads convert back.
 // Use this for consumers that still expect signal.Bus.

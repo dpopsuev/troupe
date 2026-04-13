@@ -9,7 +9,9 @@ const (
 	HierarchyType ComponentType = "hierarchy"
 	BudgetType    ComponentType = "budget"
 	ProgressType  ComponentType = "progress"
-	DisplayType   ComponentType = "display"
+	DisplayType      ComponentType = "display"
+	SpanContextType  ComponentType = "span_context"
+	ToolCardType     ComponentType = "tool_card"
 )
 
 // Alive tracks whether the agent process exists (liveness probe).
@@ -95,6 +97,18 @@ type Display struct {
 
 // ComponentType implements Component.
 func (Display) ComponentType() ComponentType { return DisplayType }
+
+// SpanContext carries trace correlation for distributed tracing.
+// Attached to agents at spawn — child entities inherit parent's TraceID.
+// Consumers query EventLog.ByTraceID(span.TraceID) for the full timeline.
+type SpanContext struct {
+	TraceID      string `json:"trace_id"`
+	SpanID       string `json:"span_id"`
+	ParentSpanID string `json:"parent_span_id,omitempty"`
+}
+
+// ComponentType implements Component.
+func (SpanContext) ComponentType() ComponentType { return SpanContextType }
 
 // IdentityStrategy resolves agent roles into fully-formed entities
 // with identity components.
