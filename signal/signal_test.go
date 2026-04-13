@@ -169,33 +169,27 @@ func TestMemBus_ImplementsBusInterface(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// DurableBus
+// DurableEventLog (was DurableBus — migrated to EventLog + EventStore)
 // ---------------------------------------------------------------------------
 
-func TestDurableBus_EmitAndReplay(t *testing.T) {
+func TestDurableEventLog_EmitAndReplay(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "signals.jsonl")
+	path := filepath.Join(dir, "events.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
-	bus.Emit(&signal.Signal{Event: "case_start", Agent: "worker-1", CaseID: "C1", Step: "recall"})
-	bus.Emit(&signal.Signal{
-		Event:  "step_complete",
-		Agent:  "worker-1",
-		CaseID: "C1",
-		Step:   "recall",
-		Meta:   map[string]string{"outcome": "hit"},
-	})
-	bus.Emit(&signal.Signal{Event: "case_start", Agent: "worker-1", CaseID: "C2", Step: "recall"})
+	log.Emit(signal.Event{Kind: "case_start", Source: "worker-1"})
+	log.Emit(signal.Event{Kind: "step_complete", Source: "worker-1", Data: map[string]string{"outcome": "hit"}})
+	log.Emit(signal.Event{Kind: "case_start", Source: "worker-2"})
 
-	if bus.Len() != 3 {
-		t.Fatalf("expected 3 signals, got %d", bus.Len())
+	if log.Len() != 3 {
+		t.Fatalf("expected 3 events, got %d", log.Len())
 	}
 
-	if err := bus.Close(); err != nil {
+	if err := log.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 
@@ -205,57 +199,54 @@ func TestDurableBus_EmitAndReplay(t *testing.T) {
 		t.Fatalf("stat: %v", err)
 	}
 	if info.Size() == 0 {
-		t.Error("signal file should not be empty")
+		t.Error("event file should not be empty")
 	}
 
-	// Create a new bus and replay.
-	bus2, err := signal.NewDurableBus(path)
+	// Create a new log and replay.
+	log2, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatalf("create for replay: %v", err)
 	}
-	defer bus2.Close()
+	defer log2.Close()
 
-	count, err := bus2.Replay()
+	count, err := log2.Replay()
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
 	if count != 3 {
-		t.Errorf("replayed %d signals, want 3", count)
+		t.Errorf("replayed %d events, want 3", count)
 	}
-	if bus2.Len() != 3 {
-		t.Errorf("bus has %d signals after replay, want 3", bus2.Len())
+	if log2.Len() != 3 {
+		t.Errorf("log has %d events after replay, want 3", log2.Len())
 	}
 
-	signals := bus2.Since(0)
-	if signals[0].Event != "case_start" {
-		t.Errorf("first signal: got %s, want case_start", signals[0].Event)
-	}
-	if signals[1].Meta["outcome"] != "hit" {
-		t.Error("second signal should have outcome=hit meta")
+	events := log2.Since(0)
+	if events[0].Kind != "case_start" {
+		t.Errorf("first event: got %s, want case_start", events[0].Kind)
 	}
 }
 
-func TestDurableBus_ReplayMissingFile(t *testing.T) {
+func TestDurableEventLog_ReplayMissingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "missing.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
 	// Close first to release the write handle, then delete the file.
-	bus.Close()
+	log.Close()
 	os.Remove(path)
 
 	// Replay on missing file should succeed with 0 count.
-	bus2, err := signal.NewDurableBus(path)
+	log2, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatalf("create for replay: %v", err)
 	}
-	defer bus2.Close()
+	defer log2.Close()
 
-	count, err := bus2.Replay()
+	count, err := log2.Replay()
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
@@ -264,72 +255,68 @@ func TestDurableBus_ReplayMissingFile(t *testing.T) {
 	}
 }
 
-func TestDurableBus_AppendAfterReplay(t *testing.T) {
+func TestDurableEventLog_AppendAfterReplay(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "signals.jsonl")
+	path := filepath.Join(dir, "events.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bus.Emit(&signal.Signal{Event: "start", Agent: "w1", CaseID: "C1"})
-	bus.Close()
+	log.Emit(signal.Event{Kind: "start", Source: "w1"})
+	log.Close()
 
-	bus2, err := signal.NewDurableBus(path)
+	log2, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bus2.Close()
+	defer log2.Close()
 
-	if _, err = bus2.Replay(); err != nil {
+	if _, err = log2.Replay(); err != nil {
 		t.Fatalf("replay: %v", err)
 	}
-	bus2.Emit(&signal.Signal{Event: "continue", Agent: "w1", CaseID: "C1", Step: "triage"})
+	log2.Emit(signal.Event{Kind: "continue", Source: "w1"})
 
-	if bus2.Len() != 2 {
-		t.Errorf("expected 2 signals, got %d", bus2.Len())
+	if log2.Len() != 2 {
+		t.Errorf("expected 2 events, got %d", log2.Len())
 	}
 
-	// Close and re-replay to verify both signals persisted.
-	bus2.Close()
+	// Close and re-replay to verify both events persisted.
+	log2.Close()
 
-	bus3, err := signal.NewDurableBus(path)
+	log3, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bus3.Close()
-	count, _ := bus3.Replay()
+	defer log3.Close()
+	count, _ := log3.Replay()
 	if count != 2 {
 		t.Errorf("replayed %d, want 2", count)
 	}
 }
 
-func TestDurableBus_FilePersistence(t *testing.T) {
+func TestDurableEventLog_FilePersistence(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "persist.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < 5; i++ {
-		bus.Emit(&signal.Signal{
-			Event:        fmt.Sprintf("event-%d", i),
-			Agent:        "test",
-			Performative: signal.Inform,
-		})
+	for i := range 5 {
+		log.Emit(signal.Event{Kind: fmt.Sprintf("event-%d", i), Source: "test"})
 	}
-	bus.Close()
+	log.Close()
 
-	// Re-open and replay -- verify all 5 signals persist.
-	bus2, err := signal.NewDurableBus(path)
+	// Re-open and replay — verify all 5 events persist.
+	log2, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bus2.Close()
+	defer log2.Close()
 
-	count, err := bus2.Replay()
+	count, err := log2.Replay()
 	if err != nil {
 		t.Fatalf("replay: %v", err)
 	}
@@ -337,41 +324,41 @@ func TestDurableBus_FilePersistence(t *testing.T) {
 		t.Errorf("replay count: got %d, want 5", count)
 	}
 
-	sigs := bus2.Since(0)
-	for i, s := range sigs {
+	events := log2.Since(0)
+	for i, e := range events {
 		want := fmt.Sprintf("event-%d", i)
-		if s.Event != want {
-			t.Errorf("signal[%d].Event: got %q, want %q", i, s.Event, want)
+		if e.Kind != want {
+			t.Errorf("event[%d].Kind: got %q, want %q", i, e.Kind, want)
 		}
 	}
 }
 
-func TestDurableBus_Path(t *testing.T) {
+func TestDurableEventLog_Path(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bus.Close()
+	defer log.Close()
 
-	if bus.Path() != path {
-		t.Errorf("Path: got %q, want %q", bus.Path(), path)
+	if log.Path() != path {
+		t.Errorf("Path: got %q, want %q", log.Path(), path)
 	}
 }
 
-func TestDurableBus_ImplementsBusInterface(t *testing.T) {
+func TestDurableEventLog_ImplementsEventLogInterface(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "iface.jsonl")
 
-	bus, err := signal.NewDurableBus(path)
+	log, err := signal.NewDurableJSONLines(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bus.Close()
+	defer log.Close()
 
-	var _ signal.Bus = bus
+	var _ signal.EventLog = log
 }
 
 // ---------------------------------------------------------------------------
