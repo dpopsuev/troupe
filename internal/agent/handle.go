@@ -21,7 +21,7 @@ type Solo struct {
 	role      string
 	world     *world.World
 	pool      *warden.AgentWarden
-	transport *transport.LocalTransport
+	transport transport.Transport
 }
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ type Solo struct {
 // ---------------------------------------------------------------------------
 
 // NewSolo creates a Solo handle for an existing entity.
-func NewSolo(id world.EntityID, role string, w *world.World, p *warden.AgentWarden, t *transport.LocalTransport) *Solo {
+func NewSolo(id world.EntityID, role string, w *world.World, p *warden.AgentWarden, t transport.Transport) *Solo {
 	return &Solo{id: id, role: role, world: w, pool: p, transport: t}
 }
 

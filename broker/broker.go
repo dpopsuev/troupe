@@ -79,7 +79,7 @@ func (a *multiDriverAdapter) Healthy(_ context.Context, _ world.EntityID) bool {
 type DefaultBroker struct {
 	world     *world.World
 	warden    *warden.AgentWarden
-	transport *transport.LocalTransport
+	transport transport.Transport
 	bus       signal.Bus
 	registry  *identity.Registry
 	hooks     []Hook
