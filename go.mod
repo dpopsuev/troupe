@@ -9,7 +9,6 @@ require (
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.26.0
-	github.com/dpopsuev/battery v0.2.1
 	github.com/mozilla-ai/any-llm-go v0.9.0
 )
 
