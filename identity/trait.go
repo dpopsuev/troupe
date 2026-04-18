@@ -1,9 +1,6 @@
 // Package trait provides behavioral trait primitives for agents.
-// Traits are quantified behavioral preferences (0.0-1.0) backed by
-// real LLM benchmarks. Consumers attach trait.Set as an ECS component
-// and map values to operational config (budget, timeout, loop limits).
-//
-// Stubs in v0.2.0 — full inference pipeline deferred to Arsenal (JRC-NED-2).
+// TraitVector axes map to industry LLM benchmarks — not personality types.
+// Arsenal scores models by dot-product of preferences against model benchmarks.
 package identity
 
 import "github.com/dpopsuev/troupe/world"
@@ -43,56 +40,57 @@ func (s Set) Has(name string) bool {
 	return false
 }
 
-// Default trait names — the 8-trait vocabulary from JRC-SPC-4.
+// Benchmark-aligned trait axes.
 const (
-	Speed      = "speed"      // fast scan vs slow analysis
-	Reasoning  = "reasoning"  // multi-step logical chains
-	Rigor      = "rigor"      // demands evidence, rejects uncertainty
-	Coding     = "coding"     // read, write, debug code
-	Discipline = "discipline" // follows instructions exactly
-	ToolUse    = "tooluse"    // chains tool calls autonomously
-	Discourse  = "discourse"  // pushes back, challenges, brainstorms
-	Visual     = "visual"     // reads and creates visual/spatial content
+	Coding      = "coding"      // SWE-bench, HumanEval, LiveCodeBench
+	Reasoning   = "reasoning"   // GPQA Diamond, BBH, MUSR
+	Knowledge   = "knowledge"   // MMLU, SuperGPQA, SimpleQA
+	Math        = "math"        // AIME, HMMT, MATH-500
+	Instruction = "instruction" // IFEval, Chatbot Arena
+	Agentic     = "agentic"     // TerminalBench, BrowseComp, tool-calling
+	Speed       = "speed"       // tokens/sec throughput
+	Cost        = "cost"        // inverse price (higher = cheaper)
 )
 
-// DefaultVocabulary returns the 8 default trait names.
+// DefaultVocabulary returns the 8 benchmark-aligned trait names.
 func DefaultVocabulary() []string {
-	return []string{Speed, Reasoning, Rigor, Coding, Discipline, ToolUse, Discourse, Visual}
+	return []string{Coding, Reasoning, Knowledge, Math, Instruction, Agentic, Speed, Cost}
 }
 
-// TraitVector holds normalized trait scores (0.0-1.0) for the 8-trait vocabulary.
+// TraitVector holds normalized trait scores (0.0-1.0) for model selection.
+// Axes map to industry LLM benchmarks.
 type TraitVector struct {
-	Speed      float64 `yaml:"speed"      json:"speed"`
-	Reasoning  float64 `yaml:"reasoning"  json:"reasoning"`
-	Rigor      float64 `yaml:"rigor"      json:"rigor"`
-	Coding     float64 `yaml:"coding"     json:"coding"`
-	Discipline float64 `yaml:"discipline" json:"discipline"`
-	ToolUse    float64 `yaml:"tooluse"    json:"tooluse"`
-	Discourse  float64 `yaml:"discourse"  json:"discourse"`
-	Visual     float64 `yaml:"visual"     json:"visual"`
+	Coding      float64 `yaml:"coding"      json:"coding"`
+	Reasoning   float64 `yaml:"reasoning"   json:"reasoning"`
+	Knowledge   float64 `yaml:"knowledge"   json:"knowledge"`
+	Math        float64 `yaml:"math"        json:"math"`
+	Instruction float64 `yaml:"instruction" json:"instruction"`
+	Agentic     float64 `yaml:"agentic"     json:"agentic"`
+	Speed       float64 `yaml:"speed"       json:"speed"`
+	Cost        float64 `yaml:"cost"        json:"cost"`
 }
 
 // Score returns the dot product of this vector with a weight vector.
 func (v TraitVector) Score(w TraitVector) float64 {
-	return v.Speed*w.Speed +
+	return v.Coding*w.Coding +
 		v.Reasoning*w.Reasoning +
-		v.Rigor*w.Rigor +
-		v.Coding*w.Coding +
-		v.Discipline*w.Discipline +
-		v.ToolUse*w.ToolUse +
-		v.Discourse*w.Discourse +
-		v.Visual*w.Visual
+		v.Knowledge*w.Knowledge +
+		v.Math*w.Math +
+		v.Instruction*w.Instruction +
+		v.Agentic*w.Agentic +
+		v.Speed*w.Speed +
+		v.Cost*w.Cost
 }
 
 // MeetsMinimum returns true if every non-zero field in floor is <= the
 // corresponding field in v.
 func (v TraitVector) MeetsMinimum(floor TraitVector) bool {
-	return (floor.Speed == 0 || v.Speed >= floor.Speed) &&
+	return (floor.Coding == 0 || v.Coding >= floor.Coding) &&
 		(floor.Reasoning == 0 || v.Reasoning >= floor.Reasoning) &&
-		(floor.Rigor == 0 || v.Rigor >= floor.Rigor) &&
-		(floor.Coding == 0 || v.Coding >= floor.Coding) &&
-		(floor.Discipline == 0 || v.Discipline >= floor.Discipline) &&
-		(floor.ToolUse == 0 || v.ToolUse >= floor.ToolUse) &&
-		(floor.Discourse == 0 || v.Discourse >= floor.Discourse) &&
-		(floor.Visual == 0 || v.Visual >= floor.Visual)
+		(floor.Knowledge == 0 || v.Knowledge >= floor.Knowledge) &&
+		(floor.Math == 0 || v.Math >= floor.Math) &&
+		(floor.Instruction == 0 || v.Instruction >= floor.Instruction) &&
+		(floor.Agentic == 0 || v.Agentic >= floor.Agentic) &&
+		(floor.Speed == 0 || v.Speed >= floor.Speed) &&
+		(floor.Cost == 0 || v.Cost >= floor.Cost)
 }

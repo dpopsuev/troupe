@@ -121,9 +121,9 @@ func (s *Snapshot) normalize() {
 
 	// Find min/max per trait.
 	minV := TraitVector{
-		Speed: math.MaxFloat64, Reasoning: math.MaxFloat64, Rigor: math.MaxFloat64,
-		Coding: math.MaxFloat64, Discipline: math.MaxFloat64, ToolUse: math.MaxFloat64,
-		Discourse: math.MaxFloat64, Visual: math.MaxFloat64,
+		Speed: math.MaxFloat64, Reasoning: math.MaxFloat64, Knowledge: math.MaxFloat64,
+		Coding: math.MaxFloat64, Instruction: math.MaxFloat64, Agentic: math.MaxFloat64,
+		Math: math.MaxFloat64, Cost: math.MaxFloat64,
 	}
 	var maxV TraitVector
 
@@ -131,33 +131,33 @@ func (s *Snapshot) normalize() {
 		t := m.Traits
 		minV.Speed = min(minV.Speed, t.Speed)
 		minV.Reasoning = min(minV.Reasoning, t.Reasoning)
-		minV.Rigor = min(minV.Rigor, t.Rigor)
+		minV.Knowledge = min(minV.Knowledge, t.Knowledge)
 		minV.Coding = min(minV.Coding, t.Coding)
-		minV.Discipline = min(minV.Discipline, t.Discipline)
-		minV.ToolUse = min(minV.ToolUse, t.ToolUse)
-		minV.Discourse = min(minV.Discourse, t.Discourse)
-		minV.Visual = min(minV.Visual, t.Visual)
+		minV.Instruction = min(minV.Instruction, t.Instruction)
+		minV.Agentic = min(minV.Agentic, t.Agentic)
+		minV.Math = min(minV.Math, t.Math)
+		minV.Cost = min(minV.Cost, t.Cost)
 
 		maxV.Speed = max(maxV.Speed, t.Speed)
 		maxV.Reasoning = max(maxV.Reasoning, t.Reasoning)
-		maxV.Rigor = max(maxV.Rigor, t.Rigor)
+		maxV.Knowledge = max(maxV.Knowledge, t.Knowledge)
 		maxV.Coding = max(maxV.Coding, t.Coding)
-		maxV.Discipline = max(maxV.Discipline, t.Discipline)
-		maxV.ToolUse = max(maxV.ToolUse, t.ToolUse)
-		maxV.Discourse = max(maxV.Discourse, t.Discourse)
-		maxV.Visual = max(maxV.Visual, t.Visual)
+		maxV.Instruction = max(maxV.Instruction, t.Instruction)
+		maxV.Agentic = max(maxV.Agentic, t.Agentic)
+		maxV.Math = max(maxV.Math, t.Math)
+		maxV.Cost = max(maxV.Cost, t.Cost)
 	}
 
 	// Normalize each model's traits to 0.0-1.0.
 	for _, m := range s.Models {
 		m.Traits.Speed = normField(m.Traits.Speed, minV.Speed, maxV.Speed)
 		m.Traits.Reasoning = normField(m.Traits.Reasoning, minV.Reasoning, maxV.Reasoning)
-		m.Traits.Rigor = normField(m.Traits.Rigor, minV.Rigor, maxV.Rigor)
+		m.Traits.Knowledge = normField(m.Traits.Knowledge, minV.Knowledge, maxV.Knowledge)
 		m.Traits.Coding = normField(m.Traits.Coding, minV.Coding, maxV.Coding)
-		m.Traits.Discipline = normField(m.Traits.Discipline, minV.Discipline, maxV.Discipline)
-		m.Traits.ToolUse = normField(m.Traits.ToolUse, minV.ToolUse, maxV.ToolUse)
-		m.Traits.Discourse = normField(m.Traits.Discourse, minV.Discourse, maxV.Discourse)
-		m.Traits.Visual = normField(m.Traits.Visual, minV.Visual, maxV.Visual)
+		m.Traits.Instruction = normField(m.Traits.Instruction, minV.Instruction, maxV.Instruction)
+		m.Traits.Agentic = normField(m.Traits.Agentic, minV.Agentic, maxV.Agentic)
+		m.Traits.Math = normField(m.Traits.Math, minV.Math, maxV.Math)
+		m.Traits.Cost = normField(m.Traits.Cost, minV.Cost, maxV.Cost)
 	}
 }
 

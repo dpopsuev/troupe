@@ -39,7 +39,7 @@ func TestApplyMapping(t *testing.T) {
 	}
 	mapping := TraitMapping{
 		Coding:     map[string]float64{"swe_bench": 0.6, "human_eval": 0.4},
-		Discipline: map[string]float64{"ifeval": 1.0},
+		Instruction: map[string]float64{"ifeval": 1.0},
 	}
 
 	v := ApplyMapping(benchmarks, mapping)
@@ -48,8 +48,8 @@ func TestApplyMapping(t *testing.T) {
 	if math.Abs(v.Coding-wantCoding) > 0.001 {
 		t.Errorf("Coding = %f, want %f", v.Coding, wantCoding)
 	}
-	if math.Abs(v.Discipline-85.0) > 0.001 {
-		t.Errorf("Discipline = %f, want 85.0", v.Discipline)
+	if math.Abs(v.Instruction-85.0) > 0.001 {
+		t.Errorf("Instruction = %f, want 85.0", v.Instruction)
 	}
 }
 

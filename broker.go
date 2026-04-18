@@ -61,6 +61,17 @@ type ActorConfig struct {
 	// Role is the assigned role.
 	Role string `json:"role,omitempty"`
 
+	// Thinking controls reasoning depth (0.0 = shallowest, 1.0 = deepest).
+	// Arsenal uses this to select model tier.
+	Thinking float64 `json:"thinking,omitempty"`
+
+	// Domain hints what kind of work (coding, reasoning, knowledge, math, agentic).
+	// Empty = auto-detect or best generalist. Arsenal scores models by domain fit.
+	Domain string `json:"domain,omitempty"`
+
+	// Skills lists agent capabilities (e.g., "code-review", "security-audit").
+	Skills []string `json:"skills,omitempty"`
+
 	// CallbackURL is the A2A endpoint for external agents.
 	// When set, the agent is external — messages are proxied to this URL.
 	// When empty, the agent is internal — started via Driver.
