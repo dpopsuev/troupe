@@ -2,6 +2,8 @@ package broker_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -297,6 +299,36 @@ func TestLobby_EvictStale(t *testing.T) {
 	}
 	if lobby.Count() != 0 {
 		t.Fatalf("lobby has %d entries, want 0", lobby.Count())
+	}
+}
+
+func TestLobby_ConcurrentAdmit_Race(t *testing.T) {
+	w := world.NewWorld()
+	tr := transport.NewLocalTransport()
+
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     w,
+		Transport: tr,
+	})
+
+	const n = 20
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := range n {
+		go func(i int) {
+			defer wg.Done()
+			_, _ = lobby.Admit(context.Background(), troupe.ActorConfig{
+				Role: fmt.Sprintf("worker-%d", i),
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	if lobby.Count() != n {
+		t.Fatalf("lobby has %d entries, want %d", lobby.Count(), n)
+	}
+	if w.Count() != n {
+		t.Fatalf("World has %d entities, want %d", w.Count(), n)
 	}
 }
 
