@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/a2aproject/a2a-go/a2a"
 )
 
 // TestHTTP_WireRoundTrip proves the HTTP handler works over the network —
@@ -84,7 +86,7 @@ func TestHTTP_WireUnknownAgent(t *testing.T) {
 	}
 }
 
-// TestHTTP_AgentCardDiscovery proves /.well-known/agent-card.json lists registered agents.
+// TestHTTP_AgentCardDiscovery proves /.well-known/agent.json lists registered agents as A2A cards.
 func TestHTTP_AgentCardDiscovery(t *testing.T) {
 	tr := NewHTTPTransport()
 	defer tr.Close()
@@ -102,7 +104,7 @@ func TestHTTP_AgentCardDiscovery(t *testing.T) {
 	ts := httptest.NewServer(tr.Mux())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/.well-known/agent-card.json")
+	resp, err := http.Get(ts.URL + "/.well-known/agent.json")
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
@@ -112,7 +114,7 @@ func TestHTTP_AgentCardDiscovery(t *testing.T) {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 
-	var cards []AgentCard
+	var cards []a2a.AgentCard
 	if err := json.NewDecoder(resp.Body).Decode(&cards); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
@@ -121,15 +123,13 @@ func TestHTTP_AgentCardDiscovery(t *testing.T) {
 		t.Fatalf("cards = %d, want 2", len(cards))
 	}
 
-	roles := map[string]bool{}
 	for _, c := range cards {
-		roles[c.Role] = true
-		if c.Transport != "http" {
-			t.Errorf("card %s transport = %q, want http", c.ID, c.Transport)
+		if c.ProtocolVersion != a2aProtocolVersion {
+			t.Errorf("card %s protocolVersion = %q, want %s", c.Name, c.ProtocolVersion, a2aProtocolVersion)
 		}
-	}
-	if !roles["investigator"] || !roles["reviewer"] {
-		t.Errorf("expected investigator + reviewer roles, got %v", roles)
+		if len(c.Skills) == 0 {
+			t.Errorf("card %s has no skills", c.Name)
+		}
 	}
 }
 
@@ -141,14 +141,14 @@ func TestHTTP_AgentCardDiscovery_Empty(t *testing.T) {
 	ts := httptest.NewServer(tr.Mux())
 	defer ts.Close()
 
-	resp, err := http.Get(ts.URL + "/.well-known/agent-card.json")
+	resp, err := http.Get(ts.URL + "/.well-known/agent.json")
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
 	defer resp.Body.Close()
 
-	var cards []AgentCard
-	json.NewDecoder(resp.Body).Decode(&cards)
+	var cards []a2a.AgentCard
+	json.NewDecoder(resp.Body).Decode(&cards) //nolint:errcheck
 
 	if len(cards) != 0 {
 		t.Errorf("expected empty, got %d cards", len(cards))

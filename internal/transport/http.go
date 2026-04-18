@@ -22,7 +22,8 @@ func NewHTTPTransport() *HTTPTransport {
 		mux:           http.NewServeMux(),
 	}
 	t.mux.HandleFunc("POST /a2a/send", t.handleSend)
-	t.mux.HandleFunc("GET /.well-known/agent-card.json", t.handleAgentCards)
+	t.mux.HandleFunc("GET /.well-known/agent.json", t.handleAgentCards)
+	t.mux.HandleFunc("GET /.well-known/agent-card.json", t.handleAgentCards) // legacy compat
 	return t
 }
 
@@ -113,25 +114,19 @@ func wantsSSE(r *http.Request) bool {
 	return strings.Contains(r.Header.Get("Accept"), "text/event-stream")
 }
 
-// handleAgentCards serves the A2A agent card discovery endpoint.
-// Returns JSON array of AgentCards for all registered agents.
-func (t *HTTPTransport) handleAgentCards(w http.ResponseWriter, _ *http.Request) {
+// handleAgentCards serves the A2A v1.0 agent card discovery endpoint.
+// Returns JSON array of A2A AgentCards for all registered agents.
+func (t *HTTPTransport) handleAgentCards(w http.ResponseWriter, r *http.Request) {
 	t.mu.RLock()
-	agents := make([]AgentID, 0, len(t.handlers))
-	for id := range t.handlers {
-		agents = append(agents, id)
+	handlers := make(map[AgentID]MsgHandler, len(t.handlers))
+	for id, h := range t.handlers {
+		handlers[id] = h
 	}
+	roles := t.roles
 	t.mu.RUnlock()
 
-	cards := make([]AgentCard, 0, len(agents))
-	for _, id := range agents {
-		role := t.roles.RoleOf(string(id))
-		cards = append(cards, AgentCard{
-			ID:        string(id),
-			Role:      role,
-			Transport: "http",
-		})
-	}
+	endpointURL := "http://" + r.Host
+	cards := BuildA2ACardsFromHandlers(handlers, roles, endpointURL)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cards) //nolint:errcheck // HTTP response encoding
