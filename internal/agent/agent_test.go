@@ -53,30 +53,7 @@ func TestHandle_String(t *testing.T) {
 	}
 }
 
-func TestHandle_IsAlive(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	if !h.IsAlive() {
-		t.Fatal("should be alive after spawn")
-	}
-
-	h.Kill(ctx)
-	if h.IsAlive() {
-		t.Fatal("should not be alive after kill")
-	}
-}
-
-func TestHandle_IsHealthy(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	if !h.IsHealthy() {
-		t.Fatal("should be healthy after spawn")
-	}
-}
 
 func TestHandle_IsZombie(t *testing.T) {
 	s := setup()
@@ -121,35 +98,6 @@ func TestHandle_Ask(t *testing.T) {
 	}
 }
 
-func TestHandle_Tell(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-
-	var received atomic.Value
-	h.Listen(func(content string) string {
-		received.Store(content)
-		return "ok"
-	})
-
-	err := h.Tell("ping")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Give the async handler time to execute.
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if v := received.Load(); v != nil {
-			if v.(string) == "ping" {
-				return
-			}
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatal("handler did not receive Tell message")
-}
 
 func TestHandle_Broadcast(t *testing.T) {
 	s := setup()
@@ -246,36 +194,14 @@ func TestHandle_Kill_Wait(t *testing.T) {
 	}
 }
 
-func TestHandle_KillWithReason(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
 
-	// Disable auto-reap so we can Wait.
-	s.Pool().SetAutoReap(0, false)
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	h.KillWithReason(ctx, warden.ExitBudget)
-
-	status, err := h.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if status == nil {
-		t.Fatal("status should not be nil")
-	}
-	if status.Code != warden.ExitBudget {
-		t.Fatalf("exit code = %d, want ExitBudget(2)", status.Code)
-	}
-}
-
-func TestHandle_Children_Parent(t *testing.T) {
+func TestHandle_Children(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
 	parent, _ := s.Spawn(ctx, "manager", warden.AgentConfig{})
 	child, _ := s.SpawnUnder(ctx, parent, "executor", warden.AgentConfig{})
 
-	// Parent → Children includes child.
 	children := parent.Children()
 	found := false
 	for _, c := range children {
@@ -286,43 +212,8 @@ func TestHandle_Children_Parent(t *testing.T) {
 	if !found {
 		t.Fatal("parent.Children should include child")
 	}
-
-	// Child → Parent points back.
-	p := child.Parent()
-	if p == nil {
-		t.Fatal("child.Parent should not be nil")
-	}
-	if p.ID() != parent.ID() {
-		t.Fatalf("child.Parent().ID() = %d, want %d", p.ID(), parent.ID())
-	}
-
-	// Root agent has no parent.
-	if parent.Parent() != nil {
-		t.Fatal("root agent should have nil Parent()")
-	}
 }
 
-func TestHandle_SetProgress(t *testing.T) {
-	s := setup()
-	ctx := context.Background()
-
-	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
-	h.SetProgress(5, 10)
-
-	p, ok := h.Progress()
-	if !ok {
-		t.Fatal("progress not attached")
-	}
-	if p.Current != 5 {
-		t.Fatalf("current = %d, want 5", p.Current)
-	}
-	if p.Total != 10 {
-		t.Fatalf("total = %d, want 10", p.Total)
-	}
-	if p.Percent != 50 {
-		t.Fatalf("percent = %f, want 50", p.Percent)
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Integration tests

@@ -48,27 +48,6 @@ func (a *Solo) String() string {
 // State
 // ---------------------------------------------------------------------------
 
-// IsAlive returns true if the agent entity exists in the world.
-func (a *Solo) IsAlive() bool {
-	return a.world.Alive(a.id)
-}
-
-// IsHealthy returns true if the agent is alive and ready.
-func (a *Solo) IsHealthy() bool {
-	alive, ok := world.TryGet[world.Alive](a.world, a.id)
-	if !ok || alive.State != world.AliveRunning {
-		return false
-	}
-	ready, ok := world.TryGet[world.Ready](a.world, a.id)
-	return ok && ready.Ready
-}
-
-// IsRunning returns true if the agent process is running (liveness probe).
-func (a *Solo) IsRunning() bool {
-	alive, ok := world.TryGet[world.Alive](a.world, a.id)
-	return ok && alive.State == world.AliveRunning
-}
-
 // Ready returns true if the agent can accept work (readiness probe).
 // Implements troupe.Actor.
 func (a *Solo) Ready() bool {
@@ -84,44 +63,6 @@ func (a *Solo) IsZombie() bool {
 // Alive returns the agent's liveness component.
 func (a *Solo) Alive() (world.Alive, bool) {
 	return world.TryGet[world.Alive](a.world, a.id)
-}
-
-// ReadyState returns the agent's readiness component.
-func (a *Solo) ReadyState() (world.Ready, bool) {
-	return world.TryGet[world.Ready](a.world, a.id)
-}
-
-// Budget returns the agent's Budget component.
-func (a *Solo) Budget() (world.Budget, bool) {
-	return world.TryGet[world.Budget](a.world, a.id)
-}
-
-// Progress returns the agent's Progress component.
-func (a *Solo) Progress() (world.Progress, bool) {
-	return world.TryGet[world.Progress](a.world, a.id)
-}
-
-// Display returns the agent's Display component (name, color, icon).
-func (a *Solo) Display() (world.Display, bool) {
-	return world.TryGet[world.Display](a.world, a.id)
-}
-
-// SetDisplay attaches or updates the Display component.
-func (a *Solo) SetDisplay(d world.Display) {
-	world.Attach(a.world, a.id, d)
-}
-
-// SetProgress attaches or updates the Progress component.
-func (a *Solo) SetProgress(current, total int) {
-	pct := 0.0
-	if total > 0 {
-		pct = float64(current) / float64(total) * 100
-	}
-	world.Attach(a.world, a.id, world.Progress{
-		Current: current,
-		Total:   total,
-		Percent: pct,
-	})
 }
 
 // Uptime returns how long the agent has been running (or total runtime if finished).
@@ -140,34 +81,6 @@ func (a *Solo) Perform(ctx context.Context, content string) (string, error) {
 		From:         "agent",
 		To:           a.agentID(),
 		Performative: signal.Request,
-		Content:      content,
-	}
-	resp, err := a.transport.Ask(ctx, a.agentID(), msg)
-	if err != nil {
-		return "", err
-	}
-	return resp.Content, nil
-}
-
-// Tell sends a fire-and-forget message to this agent.
-func (a *Solo) Tell(content string) error {
-	msg := transport.Message{
-		From:         "agent",
-		To:           a.agentID(),
-		Performative: signal.Inform,
-		Content:      content,
-	}
-	_, err := a.transport.SendMessage(context.Background(), a.agentID(), msg)
-	return err
-}
-
-// AskWithPerformative sends a message with a specific performative and blocks
-// until a response is received. Returns the response content string.
-func (a *Solo) AskWithPerformative(ctx context.Context, perf signal.Performative, content string) (string, error) {
-	msg := transport.Message{
-		From:         "agent",
-		To:           a.agentID(),
-		Performative: perf,
 		Content:      content,
 	}
 	resp, err := a.transport.Ask(ctx, a.agentID(), msg)
@@ -227,11 +140,6 @@ func (a *Solo) Kill(ctx context.Context) error {
 	return a.pool.Kill(ctx, a.id)
 }
 
-// KillWithReason stops this agent with a specific exit code.
-func (a *Solo) KillWithReason(ctx context.Context, code warden.ExitCode) error {
-	return a.pool.KillWithCode(ctx, a.id, code)
-}
-
 // Wait blocks until this agent finishes and returns its exit status.
 func (a *Solo) Wait(ctx context.Context) (*warden.ExitStatus, error) {
 	return a.pool.Wait(ctx, a.id)
@@ -252,22 +160,6 @@ func (a *Solo) Children() []*Solo {
 		})
 	}
 	return handles
-}
-
-// Parent returns a handle for this agent's parent, or nil if root (parentID == 0).
-func (a *Solo) Parent() *Solo {
-	parentID := a.pool.ParentOf(a.id)
-	if parentID == 0 {
-		return nil
-	}
-	role := a.transport.Roles().RoleOf(string(agentTransportID(parentID)))
-	return &Solo{
-		id:        parentID,
-		role:      role,
-		world:     a.world,
-		pool:      a.pool,
-		transport: a.transport,
-	}
 }
 
 // ---------------------------------------------------------------------------

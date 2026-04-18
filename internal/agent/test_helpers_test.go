@@ -32,9 +32,6 @@ func (h *testHarness) Spawn(ctx context.Context, role string, config warden.Agen
 		return nil, err
 	}
 	solo := NewSolo(id, role, h.world, h.warden, h.transport)
-	if config.Display != nil {
-		solo.SetDisplay(*config.Display)
-	}
 	return solo, nil
 }
 
