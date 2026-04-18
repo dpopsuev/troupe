@@ -123,8 +123,8 @@ func TestDefaultBroker_Discover_WithSpawnedAgents(t *testing.T) {
 	if len(reviewers) != 1 {
 		t.Errorf("Discover reviewer: got %d, want 1", len(reviewers))
 	}
-	if len(reviewers) > 0 && reviewers[0].Role != "reviewer" {
-		t.Errorf("Discover reviewer: got role %q, want reviewer", reviewers[0].Role)
+	if len(reviewers) > 0 && reviewers[0].Role() != "reviewer" {
+		t.Errorf("Discover reviewer: got role %q, want reviewer", reviewers[0].Role())
 	}
 
 	// Non-existent role.

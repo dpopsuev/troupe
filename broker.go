@@ -31,9 +31,9 @@ type Broker interface {
 	// Spawn creates a running actor from the given configuration.
 	Spawn(ctx context.Context, config ActorConfig) (Actor, error)
 
-	// Discover returns live agents in the troupe, optionally filtered by role.
+	// Discover returns agent cards for live agents, optionally filtered by role.
 	// Empty role returns all agents.
-	Discover(role string) []AgentInfo
+	Discover(role string) []AgentCard
 }
 
 // Preferences describes what kind of actor the Director needs.

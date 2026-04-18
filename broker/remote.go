@@ -98,7 +98,7 @@ func (b *RemoteBroker) Spawn(ctx context.Context, config troupe.ActorConfig) (tr
 }
 
 // Discover proxies to the remote broker's /discover endpoint.
-func (b *RemoteBroker) Discover(role string) []troupe.AgentInfo {
+func (b *RemoteBroker) Discover(role string) []troupe.AgentCard {
 	url := b.endpoint + "/discover"
 	if role != "" {
 		url += "?role=" + role
@@ -115,11 +115,19 @@ func (b *RemoteBroker) Discover(role string) []troupe.AgentInfo {
 	}
 	defer resp.Body.Close()
 
-	var agents []troupe.AgentInfo
-	if err := json.NewDecoder(resp.Body).Decode(&agents); err != nil {
+	var raw []struct {
+		Name   string   `json:"name"`
+		Role   string   `json:"role"`
+		Skills []string `json:"skills"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil
 	}
-	return agents
+	cards := make([]troupe.AgentCard, len(raw))
+	for i, r := range raw {
+		cards[i] = &simpleCard{name: r.Name, role: r.Role, skills: r.Skills}
+	}
+	return cards
 }
 
 // ProxyActor proxies Actor calls to a remote broker over HTTP.

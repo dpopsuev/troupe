@@ -361,36 +361,32 @@ func (b *DefaultBroker) emitControl(kind string, meta map[string]string) {
 	})
 }
 
-// Discover returns live agents, optionally filtered by role.
-func (b *DefaultBroker) Discover(role string) []troupe.AgentInfo {
+// Discover returns agent cards for live agents, optionally filtered by role.
+func (b *DefaultBroker) Discover(role string) []troupe.AgentCard {
 	ids := world.Query[identity.Color](b.world)
-	agents := make([]troupe.AgentInfo, 0, len(ids))
+	cards := make([]troupe.AgentCard, 0, len(ids))
 	for _, id := range ids {
 		color, _ := world.TryGet[identity.Color](b.world, id)
 		if role != "" && color.Role != role {
 			continue
 		}
-
-		healthy := false
-		if alive, ok := world.TryGet[world.Alive](b.world, id); ok {
-			healthy = alive.State == world.AliveRunning
-		}
-
-		ready := false
-		if r, ok := world.TryGet[world.Ready](b.world, id); ok {
-			ready = r.Ready
-		}
-
-		agents = append(agents, troupe.AgentInfo{
-			ID:      fmt.Sprintf("%d", id),
-			Role:    color.Role,
-			Model:   color.Collective,
-			Ready:   ready,
-			Healthy: healthy,
+		cards = append(cards, &simpleCard{
+			name: color.Title(),
+			role: color.Role,
 		})
 	}
-	return agents
+	return cards
 }
+
+type simpleCard struct {
+	name   string
+	role   string
+	skills []string
+}
+
+func (c *simpleCard) Name() string     { return c.name }
+func (c *simpleCard) Role() string     { return c.role }
+func (c *simpleCard) Skills() []string { return c.skills }
 
 // Meter returns the resource usage meter (nil if none configured).
 func (b *DefaultBroker) Meter() troupe.Meter { return b.meter }

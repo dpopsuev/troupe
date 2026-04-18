@@ -56,22 +56,27 @@ func (b *MockBroker) Pick(_ context.Context, prefs troupe.Preferences) ([]troupe
 	return configs, nil
 }
 
-// Discover returns info about pre-configured actors.
-func (b *MockBroker) Discover(role string) []troupe.AgentInfo {
-	agents := make([]troupe.AgentInfo, 0, len(b.Actors))
-	for i, a := range b.Actors {
+// Discover returns agent cards for pre-configured actors.
+func (b *MockBroker) Discover(role string) []troupe.AgentCard {
+	cards := make([]troupe.AgentCard, 0, len(b.Actors))
+	for _, a := range b.Actors {
 		if role != "" && a.Name != role {
 			continue
 		}
-		agents = append(agents, troupe.AgentInfo{
-			ID:      fmt.Sprintf("mock-%d", i+1),
-			Role:    a.Name,
-			Ready:   a.Ready(),
-			Healthy: true,
-		})
+		cards = append(cards, &mockCard{name: a.Name, role: a.Name})
 	}
-	return agents
+	return cards
 }
+
+type mockCard struct {
+	name   string
+	role   string
+	skills []string
+}
+
+func (c *mockCard) Name() string     { return c.name }
+func (c *mockCard) Role() string     { return c.role }
+func (c *mockCard) Skills() []string { return c.skills }
 
 // Spawn returns the next pre-configured MockActor.
 func (b *MockBroker) Spawn(_ context.Context, config troupe.ActorConfig) (troupe.Actor, error) {
