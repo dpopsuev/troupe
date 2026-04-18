@@ -6,6 +6,7 @@ import (
 
 	"github.com/dpopsuev/troupe"
 	"github.com/dpopsuev/troupe/broker"
+	"github.com/dpopsuev/troupe/testkit"
 	"github.com/dpopsuev/troupe/world"
 )
 
@@ -143,5 +144,59 @@ func TestBroker_MultiDriver_FallbackToDefault(t *testing.T) {
 	}
 	if len(defaultD.started) == 0 {
 		t.Error("default driver not used as fallback")
+	}
+}
+
+// --- ControlLog tests (TSK-149) ---
+
+func TestBroker_ControlLog_DispatchRouted(t *testing.T) {
+	log := testkit.NewStubEventLog()
+	d := newProviderDriver()
+	b := broker.New("",
+		broker.WithDriver(d),
+		broker.WithControlLog(log),
+	)
+
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	events := log.Since(0)
+	if len(events) == 0 {
+		t.Fatal("ControlLog should have dispatch_routed event")
+	}
+	if events[0].Kind != "dispatch_routed" {
+		t.Fatalf("event kind = %q, want dispatch_routed", events[0].Kind)
+	}
+}
+
+func TestBroker_ControlLog_VetoApplied(t *testing.T) {
+	log := testkit.NewStubEventLog()
+	b := broker.New("",
+		broker.WithDriver(newProviderDriver()),
+		broker.WithControlLog(log),
+		broker.WithSpawnGate(troupe.AlwaysDeny),
+	)
+
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
+	if err == nil {
+		t.Fatal("spawn should have been rejected by gate")
+	}
+
+	events := log.Since(0)
+	if len(events) == 0 {
+		t.Fatal("ControlLog should have veto_applied event")
+	}
+	if events[0].Kind != "veto_applied" {
+		t.Fatalf("event kind = %q, want veto_applied", events[0].Kind)
+	}
+}
+
+func TestBroker_NoControlLog_NoPanic(t *testing.T) {
+	b := broker.New("", broker.WithDriver(newProviderDriver()))
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
+	if err != nil {
+		t.Fatalf("Spawn without ControlLog: %v", err)
 	}
 }

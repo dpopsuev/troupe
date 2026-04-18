@@ -81,6 +81,7 @@ type DefaultBroker struct {
 	warden       *warden.AgentWarden
 	transport    transport.Transport
 	bus          signal.Bus
+	controlLog   signal.EventLog
 	registry     *identity.Registry
 	hooks        []Hook
 	driver       troupe.Driver // default driver (for optional interface checks)
@@ -102,6 +103,7 @@ type config struct {
 	transport    transport.Transport
 	spawnGates   []troupe.Gate
 	performGates []troupe.Gate
+	controlLog   signal.EventLog
 }
 
 // WithDriver sets the agent driver. Default: ACP (subprocess + JSON-RPC).
@@ -138,6 +140,11 @@ func WithTransport(t transport.Transport) Option {
 // WithMeter sets the resource usage meter. Default: none.
 func WithMeter(m troupe.Meter) Option {
 	return func(c *config) { c.meter = m }
+}
+
+// WithControlLog sets the control bus for routing decision events.
+func WithControlLog(l signal.EventLog) Option {
+	return func(c *config) { c.controlLog = l }
 }
 
 // WithSpawnGate adds a Gate that must pass before Broker.Spawn proceeds.
@@ -209,6 +216,7 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 		warden:      p,
 		transport:   t,
 		bus:         log.Bus(),
+		controlLog:  cfg.controlLog,
 		registry:    reg,
 		hooks:       cfg.hooks,
 		driver:      cfg.driver,
@@ -260,6 +268,9 @@ func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (trou
 			return nil, fmt.Errorf("spawn gate: %w", err)
 		}
 		if !allowed {
+			b.emitControl(signal.EventVetoApplied, map[string]string{
+				"role": cfg.Role, "reason": reason,
+			})
 			return nil, fmt.Errorf("spawn gate rejected: %s", reason)
 		}
 	}
@@ -310,7 +321,22 @@ func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (trou
 		actor = newHookedActor(actor, performHooks, b.performGate)
 	}
 
+	b.emitControl(signal.EventDispatchRouted, map[string]string{
+		"role": cfg.Role, signal.MetaKeyDispatchReason: "spawn",
+	})
+
 	return actor, nil
+}
+
+func (b *DefaultBroker) emitControl(kind string, meta map[string]string) {
+	if b.controlLog == nil {
+		return
+	}
+	b.controlLog.Emit(signal.Event{
+		Source: "broker",
+		Kind:   kind,
+		Data:   signal.Signal{Agent: "broker", Event: kind, Meta: meta},
+	})
 }
 
 // Discover returns live agents, optionally filtered by role.
