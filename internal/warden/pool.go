@@ -66,9 +66,44 @@ func NewWarden(w *world.World, t transport.Transport, log signal.EventLog, l Age
 	}
 }
 
+// StartProcess starts a process for a pre-admitted entity. The entity
+// must already exist in the World with Alive/Ready components and be
+// registered in Transport (via Admission.Admit). This method only
+// handles process lifecycle — no entity creation, no transport registration.
+func (p *AgentWarden) StartProcess(ctx context.Context, id world.EntityID, role string, config AgentConfig, parentID world.EntityID) error {
+	if p.maxAgents > 0 && p.Count() >= p.maxAgents {
+		return fmt.Errorf("%w: max %d agents", ErrQuotaExceeded, p.maxAgents)
+	}
+
+	if parentID > 0 {
+		_ = p.world.Link(parentID, world.Supervises, id)
+	}
+	if config.Budget > 0 {
+		world.Attach(p.world, id, world.Budget{Ceiling: config.Budget})
+	}
+
+	if err := p.launcher.Start(ctx, id, config); err != nil {
+		return fmt.Errorf("start process %s: %w", role, err)
+	}
+
+	p.mu.Lock()
+	p.agents[id] = &agentEntry{
+		ID:       id,
+		ParentID: parentID,
+		Role:     role,
+		Config:   config,
+		Started:  time.Now(),
+	}
+	p.waitCh[id] = make(chan struct{})
+	p.mu.Unlock()
+
+	return nil
+}
+
 // Fork spawns a new agent with parent tracking: creates entity, attaches
 // components, starts process, registers in transport, emits signal.
 // parentID=0 means root agent (no parent).
+// Deprecated: use Admission.Admit + StartProcess for new code.
 func (p *AgentWarden) Fork(ctx context.Context, role string, config AgentConfig, parentID world.EntityID) (world.EntityID, error) {
 	// 0. Quota check.
 	if p.maxAgents > 0 && p.Count() >= p.maxAgents {

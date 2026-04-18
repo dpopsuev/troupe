@@ -60,4 +60,12 @@ type ActorConfig struct {
 
 	// Role is the assigned role.
 	Role string `json:"role,omitempty"`
+
+	// CallbackURL is the A2A endpoint for external agents.
+	// When set, the agent is external — messages are proxied to this URL.
+	// When empty, the agent is internal — started via Driver.
+	CallbackURL string `json:"callback_url,omitempty"`
 }
+
+// IsExternal returns true if this config represents an external agent.
+func (c ActorConfig) IsExternal() bool { return c.CallbackURL != "" }

@@ -89,6 +89,7 @@ type DefaultBroker struct {
 	meter        troupe.Meter
 	spawnGate    troupe.Gate
 	performGate  troupe.Gate
+	admission    troupe.Admission
 }
 
 // Option configures a DefaultBroker.
@@ -104,6 +105,7 @@ type config struct {
 	spawnGates   []troupe.Gate
 	performGates []troupe.Gate
 	controlLog   signal.EventLog
+	admission    troupe.Admission
 }
 
 // WithDriver sets the agent driver. Default: ACP (subprocess + JSON-RPC).
@@ -145,6 +147,12 @@ func WithMeter(m troupe.Meter) Option {
 // WithControlLog sets the control bus for routing decision events.
 func WithControlLog(l signal.EventLog) Option {
 	return func(c *config) { c.controlLog = l }
+}
+
+// WithAdmission sets the agent admission system. When set, Broker.Spawn
+// uses Admission.Admit for entity creation instead of Warden.Fork.
+func WithAdmission(a troupe.Admission) Option {
+	return func(c *config) { c.admission = a }
 }
 
 // WithSpawnGate adds a Gate that must pass before Broker.Spawn proceeds.
@@ -224,6 +232,7 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 		meter:       cfg.meter,
 		spawnGate:   spawnGate,
 		performGate: performGate,
+		admission:   cfg.admission,
 	}
 }
 
@@ -289,10 +298,23 @@ func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (trou
 		role = "actor"
 	}
 
-	id, err := b.warden.Fork(ctx, role, warden.AgentConfig{
-		Model:    cfg.Model,
-		Provider: cfg.Provider,
-	}, 0)
+	var id world.EntityID
+	var err error
+
+	if b.admission != nil {
+		id, err = b.admission.Admit(ctx, cfg)
+		if err == nil {
+			err = b.warden.StartProcess(ctx, id, role, warden.AgentConfig{
+				Model:    cfg.Model,
+				Provider: cfg.Provider,
+			}, 0)
+		}
+	} else {
+		id, err = b.warden.Fork(ctx, role, warden.AgentConfig{
+			Model:    cfg.Model,
+			Provider: cfg.Provider,
+		}, 0)
+	}
 
 	var actor troupe.Actor
 	if err == nil {
