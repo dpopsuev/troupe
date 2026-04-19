@@ -170,6 +170,40 @@ func TestSpawnCollective_RaceStrategy(t *testing.T) {
 	t.Logf("Race winner: %q", resp)
 }
 
+func TestDefault_PickSpawnPerform(t *testing.T) {
+	stub := testkit.NewStubProvider(testkit.TextResponse("default works", 10, 5))
+
+	b, err := broker.Default(
+		broker.WithDriver(noopDriver{}),
+		broker.WithProviderResolver(func(_ string) (anyllm.Provider, error) { return stub, nil }),
+	)
+	if err != nil {
+		t.Fatalf("Default: %v", err)
+	}
+
+	configs, err := b.Pick(context.Background(), troupe.Preferences{Role: "test"})
+	if err != nil {
+		t.Fatalf("Pick: %v", err)
+	}
+	if configs[0].Model == "" {
+		t.Fatal("Pick should return a model from Arsenal")
+	}
+	t.Logf("Default Pick: model=%s provider=%s", configs[0].Model, configs[0].Provider)
+
+	actor, err := b.Spawn(context.Background(), configs[0])
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	resp, err := actor.Perform(context.Background(), "hello from default")
+	if err != nil {
+		t.Fatalf("Perform: %v", err)
+	}
+	if resp != "default works" {
+		t.Errorf("got %q, want %q", resp, "default works")
+	}
+}
+
 func TestSpawn_WithReferee_ScoresEvents(t *testing.T) {
 	sc := referee.Scorecard{
 		Name:      "spawn_test",

@@ -152,11 +152,26 @@ func WithPerformGate(g troupe.Gate) Option {
 	return func(c *config) { c.performGates = append(c.performGates, g) }
 }
 
-// New creates a local Broker. The endpoint parameter is reserved for
-// future use — pass empty string. Use A2A (GOL-29/30) for remote agents.
+// New creates a bare Broker. No Arsenal, no billing, no resilience —
+// the consumer wires what they need via With* options.
 func New(endpoint string, opts ...Option) troupe.Broker {
 	return newLocalBroker(opts...)
 }
+
+// Default creates a batteries-included Broker with sane defaults:
+// Arsenal (latest snapshot), no billing limits, no auth.
+// Additional options override defaults.
+func Default(opts ...Option) (troupe.Broker, error) {
+	a, err := NewArsenal("")
+	if err != nil {
+		return nil, fmt.Errorf("broker default: arsenal: %w", err)
+	}
+	defaults := []Option{WithArsenal(a)}
+	return newLocalBroker(append(defaults, opts...)...), nil
+}
+
+// NewArsenal is a convenience re-export for broker.Default().
+var NewArsenal = arsenal.NewArsenal
 
 // newLocalBroker creates an in-process DefaultBroker.
 func newLocalBroker(opts ...Option) *DefaultBroker {
