@@ -37,50 +37,66 @@ Dependency direction: `Djinn -> Origami -> Troupe`
 ### Server packages (authoritative multi-agent world)
 
 ```
-Root package   — Broker, Actor, Director, Driver, Meter, Gate, Pick, Threshold, Admission, AgentCard interfaces
+Root package   — Broker, Actor, Director, Driver, Meter, Gate, Pick, Threshold, Admission, Admin, AgentCard interfaces
 broker/        — Broker implementation, Lobby (admission), multi-driver adapter, hooked actors
+                 broker.New() = bare, broker.Default() = batteries-included (Arsenal wired)
 signal/        — Three-bus architecture (ControlLog, WorkLog, StatusLog), Andon health, EventStore
 world/         — ECS entity-component store (Alive/Ready, ComponentType, hierarchy edges)
 collective/    — Multi-agent primitives (Race, RoundRobin, Scatter, Scale, Dialectic, Arbiter, Fallback)
 ```
 
-### Library packages (exportable harness components)
+### Library packages (all wired into Broker via With* options)
 
 ```
 providers/     — LLM provider abstraction (any-llm-go: Anthropic, OpenAI, Gemini, Vertex, OpenRouter)
-billing/       — Token/cost tracking (CostBill, period management, BudgetEnforcer) — dual-homed: server + agent
-referee/       — Event-driven scoring engine (YAML Scorecards, weighted rules) — dual-homed: server + agent
-arsenal/       — Embedded model catalog (trait-scored selection, TraitVector, snapshot pinning)
+                 Wired via WithProviderResolver()
+billing/       — Token/cost tracking (CostBill, BudgetEnforcer) — wired via WithTracker()
+referee/       — Event-driven scoring engine (YAML Scorecards) — wired via WithReferee()
+arsenal/       — Embedded model catalog (trait-scored selection, TraitVector) — wired via WithArsenal()
 resilience/    — Circuit breaker, retry, timeout, rate limiter (pure algorithms)
 visual/        — Cosmetic identity (Color, Palette, Element, View)
-testkit/       — Test fixtures (MockActor, MockBroker, LinearDirector, FanOutDirector, BusSet helpers)
+testkit/       — Test fixtures (MockActor, MockBroker, toy agents, BusSet helpers)
 ```
 
 ### Internal packages
 
 ```
-internal/acp/       — Agent Context Protocol launcher (JSON-RPC over stdio, process spawning)
 internal/agent/     — Solo agent implementation (Actor wrapper)
 auth/               — Authentication abstraction (Bearer, Identity, Authenticator)
-internal/transport/ — A2A messaging (LocalTransport, HTTPTransport, A2A server/proxy) — core types to be promoted
+                      Wired into transport via NewA2ATransportWithAuth()
+internal/transport/ — A2A messaging types, LocalTransport, HTTPTransport, A2A server
 internal/warden/    — Agent process supervision (Fork/Kill/Wait, restart, zombie reaping)
 ```
 
 ## Protocol Decisions
 
-- **Uniform A2A**: Server uses A2A (HTTP JSON-RPC) for ALL agent communication — local or remote. No bifurcated transport.
-- **ACP**: Remains as process launcher. Agents register back via A2A through Admission/Lobby.
+- **A2A is the protocol**: A2A (HTTP JSON-RPC via a2a-go) is the sole wire protocol. No custom protocol/ package — types live in internal/transport/.
+- **No ACP**: Subprocess launching removed. Agents connect to Troupe via A2A, not process spawning.
+- **A2A roles, not Performatives**: Messages use A2A roles (user/agent) directly. FIPA-ACL Performatives removed.
 - **Heartbeat vs Andon**: Heartbeat = control plane liveness (transport-level lastSeen). Andon = data plane readiness (StatusLog: Nominal/Degraded/Failure/Blocked/Dead).
 - **Three buses**: ControlLog (routing), WorkLog (task lifecycle), StatusLog (health/observability). All durable.
+- **Vertex env vars**: Use Google standard (GOOGLE_CLOUD_LOCATION, GOOGLE_CLOUD_PROJECT), not Anthropic convention.
+- **Arsenal source provider mask**: vertex-ai.yaml `provider: anthropic` filters models to what the implementation can reach.
+
+## Admin Control Plane
+
+`Admin` interface (admin.go) — privileged operator API, separate from Broker (agent-facing):
+- Query: Agents(), Inspect(), Tree()
+- Lifecycle: Kill(), Drain(), Undrain()
+- Policy: SetBudget(), SetQuota()
+- Emergency: Cordon(), Uncordon(), KillAll()
+
+Interface drafted, implementation pending (GOL-44).
 
 ## Naming Conventions
 
-- **Core interfaces**: Actor (Perform/Ready/Kill), Broker, Director, Driver, Meter
+- **Core interfaces**: Actor (Perform/Ready/Kill), Broker, Director, Driver, Meter, Admin
 - **Predicates**: Gate (allow/deny), Pick[T] (selection), Threshold (numeric condition)
 - **Health signals**: Andon (IEC 60073 stack light). NOT horn.
 - **Events**: EventKind (Started, Completed, Failed, Transition, Done)
 - **Identity**: AgentCard (public interface), ActorConfig (input/job spec), Actor (running instance)
 - **Visual**: Color, Palette, Element — cosmetic only, in visual/ package
+- **Admission**: Admit (enter), Kick (forceful removal, replaces Dismiss), Ban (Kick + deny list)
 - **Project name**: Troupe. NOT Jericho or Bugle.
 
 ## Go Conventions
@@ -90,3 +106,5 @@ internal/warden/    — Agent process supervision (Fork/Kill/Wait, restart, zomb
 - American English spelling (canceled, not cancelled)
 - Sentinel errors with descriptive names
 - slog for structured logging with constant key names
+- broker.New() = bare, broker.Default() = batteries-included
+- integrate-early: no package without a production caller
