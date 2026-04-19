@@ -15,6 +15,7 @@ import (
 	"github.com/dpopsuev/troupe/internal/warden"
 	"github.com/dpopsuev/troupe/providers"
 	"github.com/dpopsuev/troupe/referee"
+	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/signal"
 	"github.com/dpopsuev/troupe/visual"
 	"github.com/dpopsuev/troupe/world"
@@ -36,6 +37,7 @@ type DefaultBroker struct {
 	tracker          *billing.InMemoryTracker
 	enforcer         *billing.BudgetEnforcer
 	referee          *referee.Referee
+	retryConfig      *resilience.RetryConfig
 	driver           troupe.Driver // default driver (for optional interface checks)
 	adapter          *multiDriverAdapter
 	meter            troupe.Meter
@@ -56,6 +58,7 @@ type config struct {
 	providerResolver ProviderResolver
 	tracker          *billing.InMemoryTracker
 	referee          *referee.Referee
+	retryConfig      *resilience.RetryConfig
 	meter            troupe.Meter
 	transport        transport.Transport
 	spawnGates       []troupe.Gate
@@ -109,6 +112,13 @@ func WithProviderResolver(r ProviderResolver) Option {
 // tracker, and a BudgetHook is auto-registered to gate spawns.
 func WithTracker(t *billing.InMemoryTracker) Option {
 	return func(c *config) { c.tracker = t }
+}
+
+// WithRetry wraps spawned actors with retry protection. Transient errors
+// (rate limits, timeouts) are retried with exponential backoff. Fatal
+// errors (auth, model not found) fail fast. Uses LLMClassifier by default.
+func WithRetry(cfg resilience.RetryConfig) Option {
+	return func(c *config) { c.retryConfig = &cfg }
 }
 
 // WithReferee subscribes a Referee to the StatusLog bus for event-driven
@@ -269,6 +279,7 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 		tracker:          cfg.tracker,
 		enforcer:         enforcer,
 		referee:          cfg.referee,
+		retryConfig:      cfg.retryConfig,
 		driver:           cfg.driver,
 		adapter:          adapter,
 		meter:            cfg.meter,
@@ -414,6 +425,11 @@ func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (trou
 	}
 	if len(performHooks) > 0 || b.performGate != nil {
 		actor = newHookedActor(actor, performHooks, b.performGate)
+	}
+
+	if b.retryConfig != nil {
+		retryCfg := resilience.RetryPolicy(*b.retryConfig, providers.LLMClassifier())
+		actor = resilience.NewRetryActor(actor, retryCfg)
 	}
 
 	b.emitControl(signal.EventDispatchRouted, map[string]string{

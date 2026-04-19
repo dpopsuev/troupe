@@ -2,7 +2,9 @@ package broker_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/dpopsuev/troupe"
 	anyllm "github.com/mozilla-ai/any-llm-go/providers"
@@ -12,6 +14,7 @@ import (
 	"github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/collective"
 	"github.com/dpopsuev/troupe/referee"
+	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/testkit"
 )
 
@@ -229,4 +232,69 @@ func TestSpawn_WithReferee_ScoresEvents(t *testing.T) {
 		t.Error("referee should have scored events from spawn, got 0")
 	}
 	t.Logf("Referee: score=%d pass=%t events=%d", result.Score, result.Pass, len(result.Events))
+}
+
+func TestSpawn_WithRetry_RecoversTransient(t *testing.T) {
+	callCount := 0
+	stub := testkit.NewStubProvider()
+	stub.Error = nil
+
+	failTwiceThenSucceed := testkit.NewStubProvider(
+		testkit.TextResponse("recovered", 10, 5),
+	)
+	failTwiceThenSucceed.Error = errors.New("transient")
+
+	b := broker.New("",
+		broker.WithDriver(noopDriver{}),
+		broker.WithProviderResolver(func(_ string) (anyllm.Provider, error) {
+			return &countingProvider{
+				count:     &callCount,
+				failUntil: 2,
+				success:   testkit.TextResponse("retry worked", 10, 5),
+			}, nil
+		}),
+		broker.WithRetry(resilience.RetryConfig{
+			MaxAttempts: 5,
+			BaseDelay:   1 * time.Millisecond,
+		}),
+	)
+
+	actor, err := b.Spawn(context.Background(), troupe.ActorConfig{
+		Model: "test", Provider: "test", Role: "retrier",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	resp, err := actor.Perform(context.Background(), "please retry")
+	if err != nil {
+		t.Fatalf("Perform: %v", err)
+	}
+	if resp != "retry worked" {
+		t.Errorf("resp = %q, want retry worked", resp)
+	}
+	if callCount < 3 {
+		t.Errorf("expected at least 3 calls (2 failures + 1 success), got %d", callCount)
+	}
+	t.Logf("Retry: succeeded after %d attempts", callCount)
+}
+
+type countingProvider struct {
+	count     *int
+	failUntil int
+	success   *anyllm.ChatCompletion
+}
+
+func (p *countingProvider) Name() string { return "counting" }
+
+func (p *countingProvider) Completion(_ context.Context, _ anyllm.CompletionParams) (*anyllm.ChatCompletion, error) {
+	*p.count++
+	if *p.count <= p.failUntil {
+		return nil, errors.New("transient failure")
+	}
+	return p.success, nil
+}
+
+func (p *countingProvider) CompletionStream(_ context.Context, _ anyllm.CompletionParams) (chunks <-chan anyllm.ChatCompletionChunk, errs <-chan error) {
+	return nil, nil
 }
