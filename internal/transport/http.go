@@ -1,12 +1,14 @@
 package transport
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/a2aproject/a2a-go/a2a"
+	"github.com/dpopsuev/troupe/auth"
 )
 
 // HTTPTransport is an HTTP-based A2A transport. Embeds baseTransport
@@ -56,20 +58,62 @@ func NewA2ATransport(card a2a.AgentCard, bearerTokens ...string) *HTTPTransport 
 	return t
 }
 
+type identityKey struct{}
+
+// IdentityFromContext extracts the authenticated Identity from a request context.
+func IdentityFromContext(ctx context.Context) (auth.Identity, bool) {
+	id, ok := ctx.Value(identityKey{}).(auth.Identity)
+	return id, ok
+}
+
 func bearerAuthMiddleware(next http.Handler, validTokens map[string]bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auth := r.Header.Get("Authorization")
-		if len(auth) < 7 || auth[:7] != "Bearer " {
+		hdr := r.Header.Get("Authorization")
+		if len(hdr) < 7 || hdr[:7] != "Bearer " {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		token := auth[7:]
+		token := hdr[7:]
 		if !validTokens[token] {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func authenticatorMiddleware(next http.Handler, authn auth.Authenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hdr := r.Header.Get("Authorization")
+		if len(hdr) < 7 || hdr[:7] != "Bearer " {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		token := hdr[7:]
+		identity, err := authn.Authenticate(r.Context(), token)
+		if err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		ctx := context.WithValue(r.Context(), identityKey{}, identity)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// NewA2ATransportWithAuth creates an HTTP transport with A2A endpoints
+// protected by an auth.Authenticator. The Identity is attached to the
+// request context and available via IdentityFromContext.
+func NewA2ATransportWithAuth(card *a2a.AgentCard, authn auth.Authenticator) *HTTPTransport {
+	t := &HTTPTransport{
+		baseTransport: newBase(),
+	}
+	a2aMux := A2AServerMux(&t.baseTransport, *card)
+	wrappedMux := http.NewServeMux()
+	wrappedMux.Handle("/.well-known/", a2aMux)
+	wrappedMux.Handle("/", authenticatorMiddleware(a2aMux, authn))
+	wrappedMux.HandleFunc("POST /a2a/send", t.handleSend)
+	t.mux = wrappedMux
+	return t
 }
 
 // Mux returns the HTTP handler for mounting on a server.

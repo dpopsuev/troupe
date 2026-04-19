@@ -10,6 +10,7 @@ import (
 	"github.com/dpopsuev/troupe/arsenal"
 	"github.com/dpopsuev/troupe/billing"
 	"github.com/dpopsuev/troupe/broker"
+	"github.com/dpopsuev/troupe/collective"
 	"github.com/dpopsuev/troupe/referee"
 	"github.com/dpopsuev/troupe/testkit"
 )
@@ -140,6 +141,33 @@ func TestSpawn_WithTracker_RecordsTokens(t *testing.T) {
 	}
 	t.Logf("Billing: %d prompt + %d artifact = %d total",
 		summary.TotalPromptTokens, summary.TotalArtifactTokens, summary.TotalTokens)
+}
+
+func TestSpawnCollective_RaceStrategy(t *testing.T) {
+	stub := testkit.NewStubProvider(
+		testkit.TextResponse("agent-1 response", 10, 5),
+		testkit.TextResponse("agent-2 response", 10, 5),
+		testkit.TextResponse("agent-3 response", 10, 5),
+	)
+
+	b := broker.New("",
+		broker.WithDriver(noopDriver{}),
+		broker.WithProviderResolver(func(_ string) (anyllm.Provider, error) { return stub, nil }),
+	)
+
+	actor, err := collective.SpawnCollective(context.Background(), b, 3, collective.Race{})
+	if err != nil {
+		t.Fatalf("SpawnCollective: %v", err)
+	}
+
+	resp, err := actor.Perform(context.Background(), "who wins?")
+	if err != nil {
+		t.Fatalf("Perform: %v", err)
+	}
+	if resp == "" {
+		t.Error("expected non-empty response from collective")
+	}
+	t.Logf("Race winner: %q", resp)
 }
 
 func TestSpawn_WithReferee_ScoresEvents(t *testing.T) {

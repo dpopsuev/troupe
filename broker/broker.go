@@ -9,6 +9,7 @@ import (
 	troupe "github.com/dpopsuev/troupe"
 	"github.com/dpopsuev/troupe/arsenal"
 	"github.com/dpopsuev/troupe/billing"
+	"github.com/dpopsuev/troupe/collective"
 	"github.com/dpopsuev/troupe/internal/agent"
 	"github.com/dpopsuev/troupe/internal/transport"
 	"github.com/dpopsuev/troupe/internal/warden"
@@ -463,3 +464,11 @@ func (b *DefaultBroker) SpawnGate() troupe.Gate { return b.spawnGate }
 
 // PerformGate returns the composed perform gate, or nil if none configured.
 func (b *DefaultBroker) PerformGate() troupe.Gate { return b.performGate }
+
+// SpawnCollective creates a multi-agent collective backed by the given
+// strategy. Spawns count agents via Pick+Spawn, wraps them in a Collective
+// that implements troupe.Actor. The caller sees one actor; internally N
+// agents collaborate via the strategy.
+func (b *DefaultBroker) SpawnCollective(ctx context.Context, count int, strategy collective.CollectiveStrategy) (troupe.Actor, error) {
+	return collective.SpawnCollective(ctx, b, count, strategy)
+}

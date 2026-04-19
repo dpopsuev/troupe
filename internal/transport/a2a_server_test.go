@@ -9,6 +9,7 @@ import (
 	"github.com/a2aproject/a2a-go/a2a"
 	"github.com/a2aproject/a2a-go/a2aclient"
 	"github.com/a2aproject/a2a-go/a2aclient/agentcard"
+	"github.com/dpopsuev/troupe/auth"
 )
 
 func testCard(url string) a2a.AgentCard {
@@ -211,6 +212,51 @@ func TestA2AServer_BearerAuth_CardIsPublic(t *testing.T) {
 	if card.Name != "test-agent" {
 		t.Fatalf("name = %q, want test-agent", card.Name)
 	}
+}
+
+func TestA2AServer_AuthenticatorMiddleware_RejectsInvalid(t *testing.T) {
+	authn := &stubAuthenticator{valid: "good-token"}
+	card := testCard("http://localhost")
+	tr := NewA2ATransportWithAuth(&card, authn)
+	defer tr.Close()
+
+	_ = tr.Register("agent-1", func(_ context.Context, msg Message) (Message, error) {
+		return Message{Content: "protected"}, nil
+	})
+
+	ts := httptest.NewServer(tr.Mux())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL, "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("no token: status = %d, want 401", resp.StatusCode)
+	}
+
+	req, _ := http.NewRequest("POST", ts.URL, http.NoBody)
+	req.Header.Set("Authorization", "Bearer bad-token")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("bad token: status = %d, want 403", resp.StatusCode)
+	}
+}
+
+type stubAuthenticator struct {
+	valid string
+}
+
+func (s *stubAuthenticator) Authenticate(_ context.Context, token string) (auth.Identity, error) {
+	if token == s.valid {
+		return auth.Identity{Subject: "test-user"}, nil
+	}
+	return auth.Identity{}, auth.ErrInvalidToken
 }
 
 func extractText(parts a2a.ContentParts) string {
