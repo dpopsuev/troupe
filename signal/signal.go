@@ -1,22 +1,17 @@
 package signal
 
-// Performative classifies the intent of a signal in agent-to-agent
-// communication, following FIPA-ACL speech-act semantics.
-type Performative string
+import "github.com/dpopsuev/troupe/protocol"
+
+// Re-export Performative from protocol/ for backwards compatibility.
+type Performative = protocol.Performative
 
 const (
-	// Inform notifies peers of a fact or observation.
-	Inform Performative = "inform"
-	// Request asks a peer to perform an action.
-	Request Performative = "request"
-	// Confirm acknowledges a previous request was fulfilled.
-	Confirm Performative = "confirm"
-	// Refuse declines a previous request.
-	Refuse Performative = "refuse"
-	// Handoff transfers responsibility to another agent.
-	Handoff Performative = "handoff"
-	// Directive issues a command from a supervisor.
-	Directive Performative = "directive"
+	Inform    = protocol.Inform
+	Request   = protocol.Request
+	Confirm   = protocol.Confirm
+	Refuse    = protocol.Refuse
+	Handoff   = protocol.Handoff
+	Directive = protocol.Directive
 )
 
 // Signal represents a single event on the agent message bus.
