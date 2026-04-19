@@ -47,6 +47,12 @@ func (a *DefaultAdmin) Agents(_ context.Context, filter troupe.AgentFilter) []tr
 		if filter.Role != "" && d.Role != filter.Role {
 			continue
 		}
+		if filter.Namespace != "" {
+			ns, ok := world.TryGet[world.Namespace](a.world, id)
+			if !ok || ns.Name != filter.Namespace {
+				continue
+			}
+		}
 		if filter.Alive != nil {
 			isAlive := d.Alive == world.AliveRunning
 			if *filter.Alive != isAlive {

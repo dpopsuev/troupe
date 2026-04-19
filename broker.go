@@ -42,6 +42,7 @@ type ActorConfig struct {
 	Domain      string   `json:"domain,omitempty"`
 	Skills      []string `json:"skills,omitempty"`
 	CallbackURL string   `json:"callback_url,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
 }
 
 // IsExternal returns true if this config represents an external agent.

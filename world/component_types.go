@@ -12,6 +12,7 @@ const (
 	SpanContextType ComponentType = "span_context"
 	ToolCardType    ComponentType = "tool_card"
 	AnnotationType  ComponentType = "annotation"
+	NamespaceType   ComponentType = "namespace"
 )
 
 // Alive tracks whether the agent process exists (liveness probe).
@@ -111,6 +112,14 @@ type Annotation struct {
 
 // ComponentType implements Component.
 func (Annotation) ComponentType() ComponentType { return AnnotationType }
+
+// Namespace scopes an entity to a tenant partition.
+type Namespace struct {
+	Name string `json:"name"`
+}
+
+// ComponentType implements Component.
+func (Namespace) ComponentType() ComponentType { return NamespaceType }
 
 // IdentityStrategy resolves agent roles into fully-formed entities
 // with identity components.

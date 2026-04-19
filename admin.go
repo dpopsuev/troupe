@@ -82,10 +82,11 @@ type AgentEvent struct {
 
 // AgentFilter selects agents for the Agents query.
 type AgentFilter struct {
-	Role  string `json:"role,omitempty"`
-	Alive *bool  `json:"alive,omitempty"`
-	Ready *bool  `json:"ready,omitempty"`
-	Limit int    `json:"limit,omitempty"`
+	Role      string `json:"role,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Alive     *bool  `json:"alive,omitempty"`
+	Ready     *bool  `json:"ready,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
 }
 
 // AgentDetail is the full operator view of an agent.

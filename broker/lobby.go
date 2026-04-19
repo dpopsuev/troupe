@@ -116,6 +116,9 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 
 	world.Attach(l.world, id, world.Alive{State: world.AliveRunning, Since: now})
 	world.Attach(l.world, id, world.Ready{Ready: true, LastSeen: now})
+	if config.Namespace != "" {
+		world.Attach(l.world, id, world.Namespace{Name: config.Namespace})
+	}
 
 	role := config.Role
 	if role == "" {
