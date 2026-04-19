@@ -39,6 +39,7 @@ const (
 	ReasonIdle        ReadyReason = "idle"
 	ReasonStale       ReadyReason = "stale"
 	ReasonErrored     ReadyReason = "errored"
+	ReasonDrained     ReadyReason = "drained"
 	ReasonTerminating ReadyReason = "terminating"
 	ReasonTerminated  ReadyReason = "terminated"
 )

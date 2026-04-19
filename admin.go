@@ -27,11 +27,12 @@ type Admin interface {
 	// Kill terminates an agent immediately with a reason for audit.
 	Kill(ctx context.Context, id world.EntityID, reason string) error
 
-	// Drain marks an agent as not accepting new work. Running work
-	// finishes, then the agent becomes idle. Reversible via Undrain.
+	// Drain marks an agent as not accepting new work by setting
+	// Ready{Ready: false, Reason: ReasonDrained}. Reversible via Undrain.
 	Drain(ctx context.Context, id world.EntityID) error
 
-	// Undrain re-enables work acceptance for a drained agent.
+	// Undrain re-enables work acceptance by setting
+	// Ready{Ready: true, Reason: ReasonIdle}.
 	Undrain(ctx context.Context, id world.EntityID) error
 
 	// --- Policy ---
